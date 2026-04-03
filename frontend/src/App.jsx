@@ -2,89 +2,99 @@ import { useState, useCallback } from 'react'
 import axios from 'axios'
 import './App.css'
 
-const TONE_META = {
-  'Clean':  { emoji: '🎵', color: '#4caf90', desc: 'Warm, transparent, studio clean' },
-  'Crunch': { emoji: '⚡', color: '#f5a623', desc: 'Crunchy mid-gain overdrive' },
-  'Lead':   { emoji: '🔥', color: '#e84040', desc: 'High-gain, cutting lead tone' },
+// ── Tone style meta ─────────────────────────────────────────────────────────
+const STYLE_META = {
+  jazz:      { emoji: '🎷', color: '#7c6fcd', desc: 'Warm, mellow, full jazz voicing' },
+  clean:     { emoji: '✨', color: '#4caf90', desc: 'Glassy, transparent, studio clean' },
+  blues:     { emoji: '🎵', color: '#e07030', desc: 'Gritty, soulful, vocal overdrive' },
+  rock:      { emoji: '🎸', color: '#f5a623', desc: 'Punchy crunch, classic rock drive' },
+  high_gain: { emoji: '⚡', color: '#f5c842', desc: 'Aggressive, tight, modern gain' },
+  metal:     { emoji: '🔥', color: '#e84040', desc: 'Heavy, tight, crushing distortion' },
+  bass:      { emoji: '🎸', color: '#4c8faf', desc: 'Deep, warm, low-end foundation' },
 }
 
-// Signal chain block config — defines order, icon, title, and how to extract settings
+// ── Signal chain config ───────────────────────────────────────────────────────
 function getChainBlocks(chain) {
   return [
     {
-      key:      'noise_gate',
-      icon:     '🔇',
-      title:    'Noise Gate',
-      enabled:  chain.noise_gate.enabled,
+      key:     'noise_gate',
+      icon:    '🔇',
+      title:   'Noise Gate',
+      enabled: chain.noise_gate?.enabled ?? true,
       settings: [
-        { label: 'Status',    value: chain.noise_gate.enabled ? 'ON' : 'OFF' },
-        { label: 'Threshold', value: `${chain.noise_gate.threshold} dB` },
+        { label: 'Type',      value: chain.noise_gate?.type ?? '—' },
+        { label: 'Threshold', value: `${chain.noise_gate?.threshold ?? '—'} dB` },
       ],
     },
     {
-      key:      'efx',
-      icon:     '🎛️',
-      title:    'EFX (Drive)',
-      enabled:  chain.efx.type !== 'None',
+      key:     'efx',
+      icon:    '🎛️',
+      title:   'EFX',
+      enabled: chain.efx?.type !== 'None',
       settings: [
-        { label: 'Type', value: chain.efx.type },
-        ...(chain.efx.gain != null ? [{ label: 'Gain', value: chain.efx.gain }] : []),
+        { label: 'Pedal', value: chain.efx?.type ?? '—' },
+        { label: 'Gain',  value: chain.efx?.gain ?? '—' },
       ],
     },
     {
-      key:      'amp',
-      icon:     '🔊',
-      title:    'Amp',
-      enabled:  true,
+      key:     'amp',
+      icon:    '🔊',
+      title:   'Amp',
+      enabled: true,
       settings: [
-        { label: 'Type',   value: chain.amp.type   },
-        { label: 'Gain',   value: chain.amp.gain   },
-        { label: 'Volume', value: chain.amp.volume },
+        { label: 'Model',  value: chain.amp?.type   ?? '—' },
+        { label: 'Gain',   value: chain.amp?.gain   ?? '—' },
+        { label: 'Volume', value: chain.amp?.volume ?? '—' },
+        { label: 'Treble', value: chain.amp?.treble ?? '—' },
+        { label: 'Mid',    value: chain.amp?.mid    ?? '—' },
+        { label: 'Bass',   value: chain.amp?.bass   ?? '—' },
       ],
     },
     {
-      key:      'ir',
-      icon:     '📦',
-      title:    'IR Cab',
-      enabled:  true,
+      key:     'cab',
+      icon:    '📦',
+      title:   'Cabinet',
+      enabled: true,
       settings: [
-        { label: 'Cabinet', value: chain.ir.cab },
-        ...(chain.ir.mic ? [{ label: 'Mic', value: chain.ir.mic }] : []),
+        { label: 'Model', value: chain.cab?.type ?? '—' },
+        { label: 'Mic',   value: chain.cab?.mic  ?? '—' },
       ],
     },
     {
-      key:      'mod',
-      icon:     '🌀',
-      title:    'Modulation',
-      enabled:  chain.mod.type !== 'None',
+      key:     'mod',
+      icon:    '🌀',
+      title:   'Modulation',
+      enabled: chain.mod?.type !== 'None',
       settings: [
-        { label: 'Type',  value: chain.mod.type },
-        ...(chain.mod.depth != null ? [{ label: 'Depth', value: chain.mod.depth }] : []),
+        { label: 'Effect', value: chain.mod?.type  ?? '—' },
+        { label: 'Depth',  value: chain.mod?.depth ?? '—' },
       ],
     },
     {
-      key:      'delay',
-      icon:     '⏱️',
-      title:    'Delay',
-      enabled:  chain.delay.type !== 'None',
+      key:     'delay',
+      icon:    '⏱️',
+      title:   'Delay',
+      enabled: chain.delay?.type !== 'None',
       settings: [
-        { label: 'Type', value: chain.delay.type },
-        ...(chain.delay.time != null ? [{ label: 'Time', value: `${chain.delay.time} ms` }] : []),
+        { label: 'Type',     value: chain.delay?.type     ?? '—' },
+        { label: 'Time',     value: chain.delay?.time     != null ? `${chain.delay.time} ms` : '—' },
+        { label: 'Feedback', value: chain.delay?.feedback ?? '—' },
       ],
     },
     {
-      key:      'reverb',
-      icon:     '🏔️',
-      title:    'Reverb',
-      enabled:  chain.reverb.type !== 'None',
+      key:     'reverb',
+      icon:    '🏔️',
+      title:   'Reverb',
+      enabled: chain.reverb?.type !== 'None',
       settings: [
-        { label: 'Type',  value: chain.reverb.type },
-        ...(chain.reverb.level != null ? [{ label: 'Level', value: chain.reverb.level }] : []),
+        { label: 'Type',  value: chain.reverb?.type  ?? '—' },
+        { label: 'Level', value: chain.reverb?.level ?? '—' },
       ],
     },
   ]
 }
 
+// ── Components ────────────────────────────────────────────────────────────────
 function ChainBlock({ icon, title, enabled, settings }) {
   return (
     <div className={`chain-block ${enabled ? 'block-on' : 'block-off'}`}>
@@ -108,7 +118,7 @@ function ChainBlock({ icon, title, enabled, settings }) {
 }
 
 function Knob({ label, value, max = 10 }) {
-  const pct = value / max
+  const pct   = value / max
   const angle = -135 + pct * 270
   return (
     <div className="knob-wrap">
@@ -122,20 +132,37 @@ function Knob({ label, value, max = 10 }) {
 }
 
 function ResultCard({ chain, features }) {
-  const toneName = chain.amp.type
-  const meta = TONE_META[toneName] || { emoji: '🎸', color: '#f5a623', desc: '' }
-  const blocks = getChainBlocks(chain)
+  const styleKey = (chain.style ?? 'clean').toLowerCase().replace(' ', '_')
+  const meta     = STYLE_META[styleKey] ?? STYLE_META.clean
+  const charKey  = chain.tone_character ?? 'balanced'
+  const blocks   = getChainBlocks(chain)
 
   return (
     <div className="result-card" style={{ '--accent': meta.color }}>
-      {/* Tone Header */}
+
+      {/* Style + Tone Header */}
       <div className="tone-header">
         <span className="tone-emoji">{meta.emoji}</span>
         <div>
-          <h2 className="tone-name">{toneName}</h2>
-          <p className="tone-desc">{meta.desc}</p>
+          <div className="tone-char-badge">{chain.style ?? styleKey.toUpperCase()}</div>
+          <h2 className="tone-name">{chain.amp?.type ?? 'Unknown Amp'}</h2>
+          <p className="tone-desc">{meta.desc} · <span style={{color: 'var(--accent)'}}>{charKey}</span></p>
         </div>
       </div>
+
+      {/* EQ Knobs */}
+      {chain.amp && (
+        <>
+          <div className="section-label">EQ</div>
+          <div className="knobs-row">
+            <Knob label="Gain"   value={chain.amp.gain}   />
+            <Knob label="Treble" value={chain.amp.treble} />
+            <Knob label="Mid"    value={chain.amp.mid}    />
+            <Knob label="Bass"   value={chain.amp.bass}   />
+            <Knob label="Volume" value={chain.amp.volume} />
+          </div>
+        </>
+      )}
 
       {/* Signal Chain */}
       <div className="section-label">Signal Chain</div>
@@ -150,20 +177,25 @@ function ResultCard({ chain, features }) {
 
       {/* Audio Analysis */}
       <div className="section-label">Audio Analysis</div>
-      <div className="features-row">
-        <div className="feature-chip">
-          <span className="chip-label">Spectral Centroid</span>
-          <span className="chip-value">{features.centroid.toFixed(0)} Hz</span>
-        </div>
-        <div className="feature-chip">
-          <span className="chip-label">Zero Crossing Rate</span>
-          <span className="chip-value">{features.zcr.toFixed(4)}</span>
-        </div>
+      <div className="features-grid">
+        {[
+          { label: 'Centroid',  value: `${features.centroid?.toFixed(0)} Hz` },
+          { label: 'ZCR',       value: features.zcr?.toFixed(4) },
+          { label: 'RMS',       value: features.rms?.toFixed(4) },
+          { label: 'Rolloff',   value: `${features.rolloff?.toFixed(0)} Hz` },
+          { label: 'Flatness',  value: features.flatness?.toFixed(4) },
+        ].map(({ label, value }) => (
+          <div key={label} className="feature-chip">
+            <span className="chip-label">{label}</span>
+            <span className="chip-value">{value ?? '—'}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
+// ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [file, setFile]       = useState(null)
   const [dragging, setDrag]   = useState(false)

@@ -1,36 +1,60 @@
 {
-  "amps": {
-    "clean": [
-      "jazz_clean",
-      "deluxe_rvb",
-      "hiwire",
-      "super_rvb",
-      "stageman",
-      "optima_air"
-    ],
-    "crunch": [
-      "tweedy",
-      "class_a30",
-      "plexi_45",
-      "plexi_100",
-      "1987x_50"
-    ],
-    "high_gain": [
-      "cali_crunch",
-      "brit_800",
-      "slo_100",
-      "fireman_hbe",
-      "dual_rect",
-      "die_vh4"
-    ],
-    "bass": [
-      "bass_mate",
-      "agl",
-      "mld"
-    ]
-  },
+  "amp": [
+    "jazz_clean",
+    "deluxe_rvb",
+    "hiwire",
+    "super_rvb",
+    "stageman",
+    "optima_air",
+    "tweedy",
+    "class_a30",
+    "plexi_45",
+    "plexi_100",
+    "1987x_50",
+    "cali_crunch",
+    "brit_800",
+    "slo_100",
+    "fireman_hbe",
+    "dual_rect",
+    "die_vh4",
+    "bass_mate",
+    "agl",
+    "mld"
+  ],
 
-  "drive_fx": [
+  "cab": [
+    "jz120",
+    "dr112",
+    "tr212",
+    "a112",
+    "a212",
+    "superverb410",
+    "vibroking310",
+    "budda112",
+    "z212",
+    "gb412",
+    "m1960ax",
+    "m1960av",
+    "m1960ahw",
+    "m1936",
+    "hiwire412",
+    "match212",
+    "slo412",
+    "fireman412",
+    "rect412",
+    "die412",
+    "cali112",
+    "agl_bb810",
+    "amp_sv212",
+    "amp_sv410",
+    "amp_sv810",
+    "bassguy410",
+    "eden410",
+    "mkb410",
+    "bs410"
+  ],
+
+  "efx": [
     "distortion_pp",
     "dist_one",
     "t_screamer",
@@ -40,25 +64,25 @@
     "red_dirt",
     "crunch",
     "muff_fuzz",
-    "katana"
-  ],
-
-  "boost_fx": [
+    "katana",
     "rc_boost",
-    "ac_boost"
-  ],
-
-  "compressor": [
+    "ac_boost",
     "rose_comp"
   ],
 
-  "modulation": {
-    "chorus": ["ce_1", "ce_2", "st_chorus", "sch_1", "scf"],
-    "vibe": ["vibrato", "u_vibe"],
-    "phaser": ["phase_90", "phase_100"],
-    "flanger": ["flanger"],
-    "tremolo": ["tremolo"]
-  },
+  "mod": [
+    "ce_1",
+    "ce_2",
+    "st_chorus",
+    "sch_1",
+    "scf",
+    "vibrato",
+    "u_vibe",
+    "phase_90",
+    "phase_100",
+    "flanger",
+    "tremolo"
+  ],
 
   "delay": [
     "analog",
@@ -76,43 +100,7 @@
     "damp"
   ],
 
-  "cabs": {
-    "clean": [
-      "jz120",
-      "dr112",
-      "tr212",
-      "a112",
-      "a212",
-      "superverb410",
-      "vibroking310",
-      "budda112",
-      "z212"
-    ],
-    "rock": [
-      "gb412",
-      "m1960ax",
-      "m1960av",
-      "m1960ahw",
-      "m1936",
-      "hiwire412",
-      "match212"
-    ],
-    "metal": [
-      "slo412",
-      "fireman412",
-      "rect412",
-      "die412",
-      "cali112"
-    ],
-    "bass": [
-      "agl_bb810",
-      "amp_sv212",
-      "amp_sv410",
-      "amp_sv810",
-      "bassguy410",
-      "eden410",
-      "mkb410",
-      "bs410"
-    ]
-  }
+  "noise_gate": [
+    "noise_gate"
+  ]
 }

@@ -83,26 +83,32 @@ GATE_THR  = {"jazz": -55, "clean": -50, "blues": -48, "rock": -45,
              "high_gain": -42, "metal": -38, "bass": -48}
 
 
-def _by_centroid(lst, centroid):
-    return lst[int(centroid) % len(lst)]
-
-def _by_zcr(lst, zcr):
-    return lst[int(zcr * 1000) % len(lst)]
-
+def _map_feature_to_index(value, min_val, max_val, num_items):
+    norm = max(0.0, min(1.0, (value - min_val) / (max_val - min_val))) if max_val > min_val else 0.5
+    idx = int(norm * num_items)
+    return min(idx, num_items - 1)
 
 def pick_amp(tone_class, centroid):
     amps = AMP_GROUPS.get(tone_class, AMP_GROUPS["clean"])
-    return _by_centroid(amps, centroid), tone_class
+    # centroid ranges usually 500 to 5000
+    idx = _map_feature_to_index(centroid, 500, 5000, len(amps))
+    return amps[idx], tone_class
 
 def pick_cab(group, zcr):
     cabs = CAB_GROUPS.get(group, CAB_GROUPS["clean"])
-    return _by_zcr(cabs, zcr)
+    # zcr ranges usually 0.01 to 0.15 for guitar
+    idx = _map_feature_to_index(zcr, 0.01, 0.15, len(cabs))
+    return cabs[idx]
 
 def pick_efx(group, centroid):
-    return _by_centroid(EFX_GROUPS.get(group, EFX_GROUPS["clean"]), centroid)
+    efx_list = EFX_GROUPS.get(group, EFX_GROUPS["clean"])
+    idx = _map_feature_to_index(centroid, 500, 5000, len(efx_list))
+    return efx_list[idx]
 
 def pick_mod(group, zcr):
-    return _by_zcr(MOD_GROUPS.get(group, MOD_GROUPS["clean"]), zcr)
+    mod_list = MOD_GROUPS.get(group, MOD_GROUPS["clean"])
+    idx = _map_feature_to_index(zcr, 0.01, 0.15, len(mod_list))
+    return mod_list[idx]
 
 
 def tone_eq(centroid):
@@ -113,6 +119,11 @@ def tone_eq(centroid):
     if centroid > 1500: return "warm",     5, 6, 7
     return               "dark",           3, 5, 8
 
+
+def format_name(name_key: str) -> str:
+    if name_key == "None" or not name_key:
+        return "None"
+    return name_key.replace('_', ' ').title()
 
 def generate_chain(tone_class: str, features: dict) -> dict:
     centroid = features["centroid"]
@@ -136,11 +147,11 @@ def generate_chain(tone_class: str, features: dict) -> dict:
             "threshold": GATE_THR.get(group, -45),
         },
         "efx": {
-            "type": efx,
+            "type": format_name(efx),
             "gain": EFX_GAIN.get(group, 5),
         },
         "amp": {
-            "type":   amp,
+            "type":   format_name(amp),
             "gain":   AMP_GAIN.get(group, 5),
             "volume": min(10, int(rms * 20) + 3),  # volume derived from track loudness
             "treble": treble,
@@ -148,19 +159,19 @@ def generate_chain(tone_class: str, features: dict) -> dict:
             "bass":   bass_eq,
         },
         "cab": {
-            "type": cab,
+            "type": format_name(cab),
             "mic":  "D112" if tone_class == "bass" else "SM57",
         },
         "mod": {
-            "type":  mod,
+            "type":  format_name(mod),
             "depth": 3 if tone_class in ("metal", "high_gain") else 5,
         },
         "reverb": {
-            "type":  reverb_type,
+            "type":  format_name(reverb_type),
             "level": rev_lvl,
         },
         "delay": {
-            "type":     delay_type,
+            "type":     format_name(delay_type),
             "time":     delay_ms,
             "feedback": 2 if tone_class in ("metal", "high_gain") else 4,
         },

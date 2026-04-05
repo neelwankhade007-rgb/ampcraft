@@ -305,7 +305,7 @@ body {
 
 /* ── EQ Knobs Row ────────────────────────────────── */
 .eq-section {
-  background: var(--surface2);
+  background: rgba(0, 0, 0, 0.4);
   padding: var(--space-6);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
@@ -361,6 +361,7 @@ body {
   z-index: 2;
   transform-origin: 50% 24px;
   transform: translateX(-50%) rotate(var(--angle, 0deg));
+  transition: transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 0 10px var(--accent);
 }
 
@@ -379,151 +380,270 @@ body {
   letter-spacing: 0.1em;
 }
 
+/* ── Tone Chain Visualizer ───────────────────────── */
+.tone-chain-container {
+  display: flex;
+  justify-content: space-evenly; /* Evenly space all 7 blocks */
+  align-items: center;
+  position: relative;
+  background: rgba(0, 0, 0, 0.4);
+  padding: var(--space-6) var(--space-6);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+  border: 1px solid var(--border);
+  /* No overflow:hidden — it clips the last block */
+}
+
+.signal-cable {
+  position: absolute;
+  top: 42%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    rgba(163, 230, 53, 0.4) 0%,
+    rgba(22, 211, 238, 0.4) 50%,
+    rgba(251, 146, 60, 0.4) 100%
+  );
+  z-index: 0;
+}
+
+.tone-chain-container::before,
+.tone-chain-container::after {
+  content: '';
+  position: absolute;
+  top: 42%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5eead4;
+  box-shadow: 0 0 10px #5eead4;
+  z-index: 2;
+  transform: translateY(-3px);
+}
+.tone-chain-container::before { left: 10px; }
+.tone-chain-container::after { right: 10px; }
+
+.chain-block {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 52px; /* Prevent labels from collapsing */
+  transition: all 0.3s ease;
+}
+
+.icon-box {
+  width: 48px;
+  height: 48px;
+  background: #09090b;
+  border: 2px solid #374151;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  transition: all 0.3s ease;
+}
+
+.active .icon-box {
+  border-color: var(--glow-color);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--glow-color) 40%, transparent);
+  background: color-mix(in srgb, var(--glow-color) 5%, #09090b);
+}
+
+.icon-box svg {
+  width: 100%;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.active .icon-box svg {
+  filter: drop-shadow(0 0 5px var(--glow-color));
+}
+
+.block-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-align: center;  /* Always centered under icon */
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.active .block-label {
+  color: var(--glow-color);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--glow-color) 50%, transparent);
+}
+
+.bypassed {
+  opacity: 0.5;
+}
+
 /* ── Signal Chain Grid matrix ────────────────────── */
 .chain-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-4);
+  justify-content: flex-start;
 }
 
 .chain-item {
+  flex: 1 1 240px;
+  max-width: 280px;
   display: flex;
   flex-direction: column;
 }
 
 /* ── Chain Blocks (Glass) ────────────────────────── */
 .chain-block {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   overflow: hidden;
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 0 var(--space-2);
 }
 
-.chain-block.block-on {
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+.block-on {
+  opacity: 1;
 }
 
-.chain-block.block-on .block-header {
-  background: color-mix(in srgb, var(--accent) 8%, rgba(0,0,0,0.2));
-}
-
-.chain-block.block-off {
-  opacity: 0.4;
+.block-off {
+  opacity: 0.1;
   filter: grayscale(1);
+  pointer-events: none;
 }
 
 .block-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-2);
   border-bottom: 1px solid var(--border);
-  background: rgba(0,0,0,0.2);
 }
 
 .block-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: var(--text);
-}
-
-/* LED Indicator Badge */
-.block-pill {
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.block-pill::before {
-  content: '';
-  width: 6px; height: 6px;
-  border-radius: 50%;
-}
-
-.pill-on {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-}
-.pill-on::before {
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
-}
-
-.pill-off {
   color: var(--text-muted);
-  background: rgba(255,255,255,0.05);
 }
-.pill-off::before {
-  background: var(--text-muted);
+
+.block-on .block-title {
+  color: var(--block-accent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--block-accent) 30%, transparent);
+}
+
+.block-on .block-title::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--block-accent);
+  margin-right: 8px;
+  box-shadow: 0 0 8px var(--block-accent);
 }
 
 .block-settings {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   flex-grow: 1;
 }
 
 .block-row {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-3) var(--space-4);
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
-.block-row:nth-child(even) { border-right: none; }
-.block-row:nth-last-child(-n+2) { border-bottom: none; }
+
+.block-row:last-child {
+  border-bottom: none;
+}
 
 .block-label {
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.block-value {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-/* ── Feature Grid ────────────────────────────────── */
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-4);
-}
-
-.feature-chip {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.chip-label {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-weight: 500;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  min-width: 90px; /* Fixed width to prevent value touch */
 }
 
-.chip-value {
-  font-size: 1.1rem;
-  font-family: 'Space Grotesk', sans-serif;
+.block-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+.block-on .block-value {
+  color: var(--block-accent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--block-accent) 25%, transparent);
+}
+
+/* ── Audio Features: Compact Inline Row ───────────── */
+.features-row {
+  display: flex;
+  gap: var(--space-6);
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-2);
+}
+
+.feature-pill {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.feature-pill strong {
+  color: var(--text);
   font-weight: 700;
+  margin-left: 5px;
+}
+
+/* ── Rhythm / Lead Mode Toggle ─────────────────────── */
+.mode-toggle {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+  width: fit-content;
+}
+
+.mode-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 6px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn.active {
+  background: var(--accent);
+  color: #000;
+}
+
+.mode-btn:not(.active):hover {
   color: var(--text);
 }

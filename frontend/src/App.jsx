@@ -15,87 +15,48 @@ const STYLE_META = {
 
 // ── Signal chain config ───────────────────────────────────────────────────────
 function getChainBlocks(chain) {
-  return [
-    {
-      key:     'noise_gate',
-      title:   'Noise Gate',
-      enabled: chain.noise_gate?.enabled ?? true,
-      settings: [
-        { label: 'Type',      value: chain.noise_gate?.type ?? '—' },
-        { label: 'Threshold', value: `${chain.noise_gate?.threshold ?? '—'} dB` },
-      ],
-    },
-    {
-      key:     'efx',
-      title:   'Overdrive / EFX',
-      enabled: chain.efx?.type !== 'None',
-      settings: [
-        { label: 'Pedal', value: chain.efx?.type ?? '—' },
-        { label: 'Gain',  value: chain.efx?.gain ?? '—' },
-      ],
-    },
-    {
-      key:     'amp',
-      title:   'Amplifier',
-      enabled: true,
-      settings: [
-        { label: 'Model',  value: chain.amp?.type   ?? '—' },
-        { label: 'Gain',   value: chain.amp?.gain   ?? '—' },
-        { label: 'Volume', value: chain.amp?.volume ?? '—' },
-        { label: 'Treble', value: chain.amp?.treble ?? '—' },
-        { label: 'Mid',    value: chain.amp?.mid    ?? '—' },
-        { label: 'Bass',   value: chain.amp?.bass   ?? '—' },
-      ],
-    },
-    {
-      key:     'cab',
-      title:   'Cabinet',
-      enabled: true,
-      settings: [
-        { label: 'Model', value: chain.cab?.type ?? '—' },
-        { label: 'Mic',   value: chain.cab?.mic  ?? '—' },
-      ],
-    },
-    {
-      key:     'mod',
-      title:   'Modulation',
-      enabled: chain.mod?.type !== 'None',
-      settings: [
-        { label: 'Effect', value: chain.mod?.type  ?? '—' },
-        { label: 'Depth',  value: chain.mod?.depth ?? '—' },
-      ],
-    },
-    {
-      key:     'delay',
-      title:   'Delay',
-      enabled: chain.delay?.type !== 'None',
-      settings: [
-        { label: 'Type',     value: chain.delay?.type     ?? '—' },
-        { label: 'Time',     value: chain.delay?.time     != null ? `${chain.delay.time} ms` : '—' },
-        { label: 'Feedback', value: chain.delay?.feedback ?? '—' },
-      ],
-    },
-    {
-      key:     'reverb',
-      title:   'Reverb',
-      enabled: chain.reverb?.type !== 'None',
-      settings: [
-        { label: 'Type',  value: chain.reverb?.type  ?? '—' },
-        { label: 'Level', value: chain.reverb?.level ?? '—' },
-      ],
-    },
-  ]
+  const blocks = [
+    { key: 'noise_gate', title: 'GATE', data: chain.noise_gate },
+    { key: 'efx',        title: 'EFX',  data: chain.efx },
+    { key: 'amp',        title: 'AMP',  data: chain.amp },
+    { key: 'cab',        title: 'CAB',  data: chain.cab },
+    { key: 'mod',        title: 'MOD',  data: chain.mod },
+    { key: 'delay',      title: 'DLY',  data: chain.delay },
+    { key: 'reverb',     title: 'RVB',  data: chain.reverb },
+  ];
+
+    return blocks.map(b => {
+    const isEnabled = b.data?.enabled !== false && b.data?.type !== 'None';
+    const colors = {
+      noise_gate: '#a3e635', efx: '#fbbf24', amp: '#f87171',
+      cab: '#22d3ee', mod: '#c084fc', delay: '#60a5fa', reverb: '#fb923c'
+    };
+    
+    const settings = (b.data?.settings || []).map(s => ({
+      label: s.label,
+      value: typeof s.value === 'number' ? s.value.toFixed(0) : s.value
+    }));
+
+    if (b.data?.type && b.data.type !== 'None' && !settings.some(s => s.label === 'Model' || s.label === 'Pedal' || s.label === 'Type')) {
+      settings.unshift({ label: 'Model', value: b.data.type });
+    }
+
+    return {
+      key: b.key,
+      title: b.title,
+      enabled: isEnabled,
+      settings: settings,
+      color: colors[b.key] || '#f5a623'
+    };
+  });
 }
 
 // ── Components ────────────────────────────────────────────────────────────────
-function ChainBlock({ title, enabled, settings }) {
+function ChainBlock({ title, enabled, settings, color }) {
   return (
-    <div className={`chain-block ${enabled ? 'block-on' : 'block-off'}`}>
+    <div className={`chain-block ${enabled ? 'block-on' : 'block-off'}`} style={{ '--block-accent': color }}>
       <div className="block-header">
         <span className="block-title">{title}</span>
-        <span className={`block-pill ${enabled ? 'pill-on' : 'pill-off'}`}>
-          {enabled ? 'ON' : 'OFF'}
-        </span>
       </div>
       <div className="block-settings">
         {settings.map((s, idx) => (
@@ -109,20 +70,112 @@ function ChainBlock({ title, enabled, settings }) {
   )
 }
 
-function Knob({ label, value, max = 10 }) {
-  const numVal = Number(value) || 0
-  const normalized = Math.min(Math.max(numVal, 0), max)
-  const angle = -135 + (normalized / max) * 270
+// Helper: Tone Chain Icon SVGs
+const ChainIcons = {
+  noise_gate: (color) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12h3l2-5 4 10 2-5h9" />
+      <path d="M5 12h14" strokeOpacity="0.2" strokeDasharray="2 2" />
+    </svg>
+  ),
+  efx: (color) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6" y="3" width="12" height="18" rx="2" />
+      <circle cx="12" cy="9" r="2" />
+      <circle cx="9" cy="15" r="1" /><circle cx="15" cy="15" r="1" />
+    </svg>
+  ),
+  amp: (color) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 9h18" /><path d="M6 7h1" /><path d="M9 7h1" /><path d="M12 7h1" />
+      <path d="M7 12l10 4" strokeOpacity="0.3" /><path d="M7 14l10 2" strokeOpacity="0.3" />
+    </svg>
+  ),
+  cab: (color) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="1" />
+    </svg>
+  ),
+  mod: (color) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12c4-8 8 8 12 0s8-8 12 0" />
+    </svg>
+  ),
+  delay: (color) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12c0-4 3-7 7-7s7 3 7 7-3 7-7 7" />
+      <path d="M12 12l4 4" /><path d="M8 8l2 2" />
+    </svg>
+  ),
+  reverb: (color) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="10" height="10" strokeOpacity="0.4" />
+      <rect x="7" y="7" width="10" height="10" strokeOpacity="0.7" />
+      <rect x="10" y="10" width="10" height="10" />
+    </svg>
+  )
+};
+
+function ToneChain({ chain }) {
+  const blocks = [
+    { key: 'noise_gate', label: 'GATE', color: '#a3e635' },
+    { key: 'efx',        label: 'EFX',  color: '#fbbf24' },
+    { key: 'amp',        label: 'AMP',  color: '#f87171' },
+    { key: 'cab',        label: 'IR',   color: '#22d3ee' },
+    { key: 'mod',        label: 'MOD',  color: '#c084fc' },
+    { key: 'delay',      label: 'DLY',  color: '#60a5fa' },
+    { key: 'reverb',     label: 'RVB',  color: '#fb923c' },
+  ];
+
+  return (
+    <div className="tone-chain-container">
+      <div className="signal-cable" />
+      {blocks.map((b) => {
+        const item = chain[b.key];
+        const isEnabled = item && item.enabled && item.type !== 'None';
+        const color = isEnabled ? b.color : '#4b5563';
+        
+        return (
+          <div key={b.key} className={`chain-block ${isEnabled ? 'active' : 'bypassed'}`} style={{ '--glow-color': b.color }}>
+            <div className="icon-box">
+              {ChainIcons[b.key](color)}
+            </div>
+            <div className="block-label">{b.label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Knob({ label, value, max = 100 }) {
+  // ── Animation Logic ────────────────────────────────────────────────────────
+  // To make the knobs 'spin' into place, we start at 0 and transition to the target.
+  const [displayValue, setDisplayValue] = useState(0); 
+  const numVal = Number(value) || 0;
+  
+  useEffect(() => {
+    // A small delay ensures the component is mounted before the transition starts
+    const timer = setTimeout(() => setDisplayValue(numVal), 50);
+    return () => clearTimeout(timer);
+  }, [numVal]);
+
+  const normalized = Math.min(Math.max(displayValue, 0), max);
+  const angle = -135 + (normalized / max) * 270;
 
   return (
     <div className="knob-wrap">
       <div className="knob">
+        {/* The 'angle' variable controls the rotation of the white indicator dot */}
         <div className="knob-dot" style={{ '--angle': `${angle}deg` }} />
       </div>
-      <div className="knob-value">{value}</div>
+      {/* Show the target value as an integer */}
+      <div className="knob-value">{typeof value === 'number' ? value.toFixed(0) : value}</div>
       <div className="knob-label">{label}</div>
     </div>
-  )
+  );
 }
 
 function ResultDashboard({ chain, features }) {
@@ -130,6 +183,9 @@ function ResultDashboard({ chain, features }) {
   const meta     = STYLE_META[styleKey] ?? STYLE_META.clean
   const charKey  = chain.tone_character ?? 'balanced'
   const blocks   = getChainBlocks(chain)
+
+  // Filter out amp knobs for the EQ section
+  const ampSettings = chain.amp?.settings || [];
 
   useEffect(() => {
     document.documentElement.style.setProperty('--accent', meta.color);
@@ -148,44 +204,32 @@ function ResultDashboard({ chain, features }) {
             <p className="tone-desc">{meta.desc} &middot; <strong style={{color: meta.color}}>{charKey}</strong></p>
           </div>
         </header>
+        {/* Tone Chain Visualizer */}
+        <ToneChain chain={chain} />
 
-        {/* EQ Section */}
-        <div className="section-label">EQ Profile</div>
+        {/* EQ Section — no floating label, section is self-evident */}
         <div className="eq-section">
           <div className="knobs-grid">
-            <Knob label="Gain"   value={chain.amp?.gain} />
-            <Knob label="Treble" value={chain.amp?.treble} />
-            <Knob label="Mid"    value={chain.amp?.mid} />
-            <Knob label="Bass"   value={chain.amp?.bass} />
-            <Knob label="Volume" value={chain.amp?.volume} />
+            {ampSettings.map((s, idx) => (
+              <Knob key={idx} label={s.label} value={s.value} />
+            ))}
           </div>
         </div>
 
-        {/* Signal Chain Matrix */}
-        <div className="section-label">Signal Chain</div>
+        {/* Signal Chain Details: Only show active blocks — no floating label */}
         <div className="chain-grid">
-          {blocks.map((block) => (
+          {blocks.filter(b => b.enabled).map((block) => (
             <div key={block.key} className="chain-item">
               <ChainBlock {...block} />
             </div>
           ))}
         </div>
 
-        {/* Extraction Features */}
-        <div className="section-label">Audio Features Analyzed</div>
-        <div className="features-grid">
-          <div className="feature-chip">
-            <span className="chip-label">Centroid</span>
-            <span className="chip-value">{Math.round(features.centroid)} Hz</span>
-          </div>
-          <div className="feature-chip">
-            <span className="chip-label">RMS Energy</span>
-            <span className="chip-value">{features.rms.toFixed(4)}</span>
-          </div>
-          <div className="feature-chip">
-            <span className="chip-label">Zero Crossing Range</span>
-            <span className="chip-value">{features.zcr.toFixed(4)}</span>
-          </div>
+        {/* Audio Features — compact single row at the bottom */}
+        <div className="features-row">
+          <span className="feature-pill">Centroid <strong>{Math.round(features.centroid)} Hz</strong></span>
+          <span className="feature-pill">Energy <strong>{Math.round(features.rms * 100)}%</strong></span>
+          <span className="feature-pill">ZCR <strong>{Math.round(features.zcr * 100)}%</strong></span>
         </div>
 
       </div>
@@ -200,6 +244,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [chainMode, setChainMode] = useState('rhythm')  // 'rhythm' | 'lead'
 
   const onDrop = useCallback((e) => {
     e.preventDefault()
@@ -213,6 +258,7 @@ export default function App() {
     setFile(f)
     setResult(null)
     setError(null)
+    setChainMode('rhythm')
   }
 
   const analyze = async () => {
@@ -285,7 +331,25 @@ export default function App() {
       {/* ── Main Dashboard Workspace ── */}
       <main className="main-content">
         {result ? (
-          <ResultDashboard chain={result.chain} features={result.features} />
+          <>
+            {/* Rhythm / Lead toggle — only show if lead chain differs */}
+            {result.chain_lead && (
+              <div className="mode-toggle">
+                <button
+                  className={`mode-btn ${chainMode === 'rhythm' ? 'active' : ''}`}
+                  onClick={() => setChainMode('rhythm')}
+                >Rhythm</button>
+                <button
+                  className={`mode-btn ${chainMode === 'lead' ? 'active' : ''}`}
+                  onClick={() => setChainMode('lead')}
+                >Lead</button>
+              </div>
+            )}
+            <ResultDashboard
+              chain={chainMode === 'lead' && result.chain_lead ? result.chain_lead : result.chain}
+              features={result.features}
+            />
+          </>
         ) : (
           <div className="empty-state">
             Please upload a guitar track to generate a processing chain.

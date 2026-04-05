@@ -31,7 +31,6 @@ ampcraft/
 │   ├── tone_engine.py        # Gear selection engine (all logic lives here)
 │   ├── feature_extractor.py  # Audio feature extraction via librosa
 │   ├── gear.json             # Full gear catalogue (amps, cabs, efx, mod, delay, reverb)
-│   ├── train_model.py        # ML trainer (future use — not active)
 │   ├── requirements.txt
 │   └── uploads/              # Uploaded audio files (auto-created)
 └── frontend/

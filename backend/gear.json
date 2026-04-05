@@ -1,106 +1,1130 @@
 {
-  "amp": [
-    "jazz_clean",
-    "deluxe_rvb",
-    "hiwire",
-    "super_rvb",
-    "stageman",
-    "optima_air",
-    "tweedy",
-    "class_a30",
-    "plexi_45",
-    "plexi_100",
-    "1987x_50",
-    "cali_crunch",
-    "brit_800",
-    "slo_100",
-    "fireman_hbe",
-    "dual_rect",
-    "die_vh4",
-    "bass_mate",
-    "agl",
-    "mld"
-  ],
-
-  "cab": [
-    "jz120",
-    "dr112",
-    "tr212",
-    "a112",
-    "a212",
-    "superverb410",
-    "vibroking310",
-    "budda112",
-    "z212",
-    "gb412",
-    "m1960ax",
-    "m1960av",
-    "m1960ahw",
-    "m1936",
-    "hiwire412",
-    "match212",
-    "slo412",
-    "fireman412",
-    "rect412",
-    "die412",
-    "cali112",
-    "agl_bb810",
-    "amp_sv212",
-    "amp_sv410",
-    "amp_sv810",
-    "bassguy410",
-    "eden410",
-    "mkb410",
-    "bs410"
-  ],
-
-  "efx": [
-    "distortion_pp",
-    "dist_one",
-    "t_screamer",
-    "blues_drive",
-    "morning_drive",
-    "eat_dist",
-    "red_dirt",
-    "crunch",
-    "muff_fuzz",
-    "katana",
-    "rc_boost",
-    "ac_boost",
-    "rose_comp"
-  ],
-
-  "mod": [
-    "ce_1",
-    "ce_2",
-    "st_chorus",
-    "sch_1",
-    "scf",
-    "vibrato",
-    "u_vibe",
-    "phase_90",
-    "phase_100",
-    "flanger",
-    "tremolo"
-  ],
-
-  "delay": [
-    "analog",
-    "digital",
-    "mod_delay",
-    "tape_echo",
-    "phi_delay"
-  ],
-
-  "reverb": [
-    "room",
-    "hall",
-    "plate",
-    "spring",
-    "damp"
-  ],
-
-  "noise_gate": [
-    "noise_gate"
-  ]
+  "noise_gate": {
+    "noise_gate": {
+      "name": "Noise Gate",
+      "knobs": [
+        "Sens",
+        "Decay"
+      ],
+      "defaults": {
+        "Sens": 20,
+        "Decay": 60
+      },
+      "options": {}
+    }
+  },
+  "efx": {
+    "distortion_plus": {
+      "name": "Distortion+",
+      "knobs": [
+        "Output",
+        "Sensitivity"
+      ],
+      "defaults": {
+        "Output": 50,
+        "Sensitivity": 50
+      },
+      "options": {}
+    },
+    "dist_one": {
+      "name": "Dist One",
+      "knobs": [
+        "Level",
+        "Tone",
+        "Drive"
+      ],
+      "defaults": {
+        "Level": 50,
+        "Tone": 55,
+        "Drive": 40
+      },
+      "options": {}
+    },
+    "t_screamer": {
+      "name": "T Screamer",
+      "knobs": [
+        "Drive",
+        "Tone",
+        "Level"
+      ],
+      "defaults": {
+        "Drive": 7,
+        "Tone": 48,
+        "Level": 62
+      },
+      "options": {}
+    },
+    "blues_drive": {
+      "name": "Blues Drv",
+      "knobs": [
+        "Level",
+        "Tone",
+        "Gain"
+      ],
+      "defaults": {
+        "Level": 50,
+        "Tone": 50,
+        "Gain": 50
+      },
+      "options": {}
+    },
+    "morning_drive": {
+      "name": "Morning Drive",
+      "knobs": [
+        "Volume",
+        "Drive",
+        "Tone"
+      ],
+      "defaults": {
+        "Volume": 65,
+        "Drive": 25,
+        "Tone": 55
+      },
+      "options": {}
+    },
+    "eat_dist": {
+      "name": "The Eat",
+      "knobs": [
+        "Distortion",
+        "Filter",
+        "Volume"
+      ],
+      "defaults": {
+        "Distortion": 50,
+        "Filter": 50,
+        "Volume": 50
+      },
+      "options": {}
+    },
+    "red_dirt": {
+      "name": "Red Dirt",
+      "knobs": [
+        "Drive",
+        "Tone",
+        "Level"
+      ],
+      "defaults": {
+        "Drive": 50,
+        "Tone": 50,
+        "Level": 50
+      },
+      "options": {}
+    },
+    "crunch": {
+      "name": "Crunch Box",
+      "knobs": [
+        "Volume",
+        "Tone",
+        "Gain"
+      ],
+      "defaults": {
+        "Volume": 50,
+        "Tone": 50,
+        "Gain": 50
+      },
+      "options": {}
+    },
+    "muff_fuzz": {
+      "name": "Muff Fuzz",
+      "knobs": [
+        "Volume",
+        "Tone",
+        "Sustain"
+      ],
+      "defaults": {
+        "Volume": 50,
+        "Tone": 50,
+        "Sustain": 50
+      },
+      "options": {}
+    },
+    "katana": {
+      "name": "Katana Boost",
+      "knobs": [
+        "Boost",
+        "Volume"
+      ],
+      "defaults": {
+        "Boost": "On",
+        "Volume": 50
+      },
+      "options": {
+        "Boost": [
+          "On",
+          "Off"
+        ]
+      }
+    },
+    "st_singer": {
+      "name": "ST Singer",
+      "knobs": [
+        "Volume",
+        "Gain",
+        "Filter"
+      ],
+      "defaults": {
+        "Volume": 100,
+        "Gain": 30,
+        "Filter": 30
+      },
+      "options": {}
+    },
+    "rc_boost": {
+      "name": "RC Boost",
+      "knobs": [
+        "Gain",
+        "Volume",
+        "Bass",
+        "Treble"
+      ],
+      "defaults": {
+        "Gain": 60,
+        "Volume": 50,
+        "Bass": 24,
+        "Treble": 33
+      },
+      "options": {}
+    },
+    "ac_boost": {
+      "name": "AC Boost",
+      "knobs": [
+        "Gain",
+        "Volume",
+        "Bass",
+        "Treble"
+      ],
+      "defaults": {
+        "Gain": 50,
+        "Volume": 50,
+        "Bass": 50,
+        "Treble": 50
+      },
+      "options": {}
+    },
+    "rose_comp": {
+      "name": "Rose Comp",
+      "knobs": [
+        "Sustain",
+        "Level"
+      ],
+      "defaults": {
+        "Sustain": 30,
+        "Level": 50
+      },
+      "options": {}
+    },
+    "k_comp": {
+      "name": "K Comp",
+      "knobs": [
+        "Sustain",
+        "Level",
+        "Clipping"
+      ],
+      "defaults": {
+        "Sustain": 60,
+        "Level": 40,
+        "Clipping": 60
+      },
+      "options": {}
+    },
+    "touch_wah": {
+      "name": "Touch Wah",
+      "knobs": [
+        "Type",
+        "Wow",
+        "Sense"
+      ],
+      "defaults": {
+        "Type": "TALK",
+        "Wow": 35,
+        "Sense": 90
+      },
+      "options": {
+        "Type": [
+          "CRY",
+          "VX",
+          "FULL",
+          "TALK"
+        ]
+      }
+    },
+    "tremolo": {
+      "name": "Tremolo",
+      "knobs": [
+        "Rate",
+        "Depth"
+      ],
+      "defaults": {
+        "Rate": 50,
+        "Depth": 50
+      }
+    },
+    "u_vibe": {
+      "name": "U-Vibe",
+      "knobs": [
+        "Rate",
+        "Depth",
+        "Mode"
+      ],
+      "defaults": {
+        "Rate": 75,
+        "Depth": 70,
+        "Mode": "Chorus"
+      },
+      "options": {
+        "Mode": [
+          "Chorus",
+          "Vibrato"
+        ]
+      }
+    },
+    "ph_100": {
+      "name": "PH 100",
+      "knobs": [
+        "Intensity",
+        "Rate"
+      ],
+      "defaults": {
+        "Intensity": 50,
+        "Rate": 50
+      }
+    }
+  },
+  "amp": {
+    "jazz_clean": {
+      "name": "Jazz Clean",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Bright"
+      ],
+      "defaults": {
+        "Gain": 35,
+        "Master": 80,
+        "Bass": 70,
+        "Middle": 80,
+        "Treble": 45,
+        "Bright": "Off"
+      },
+      "options": {
+        "Bright": [
+          "On",
+          "Off"
+        ]
+      }
+    },
+    "deluxe_rvb": {
+      "name": "Deluxe Rvb",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble"
+      ],
+      "defaults": {
+        "Gain": 28,
+        "Master": 71,
+        "Bass": 48,
+        "Middle": 62,
+        "Treble": 55
+      },
+      "options": {}
+    },
+    "bass_mate": {
+      "name": "Bass Mate",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 35,
+        "Master": 70,
+        "Bass": 50,
+        "Middle": 50,
+        "Treble": 50,
+        "Presence": 50
+      },
+      "options": {}
+    },
+    "tweedy": {
+      "name": "Tweedy",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Tone"
+      ],
+      "defaults": {
+        "Gain": 40,
+        "Master": 40,
+        "Tone": 30
+      },
+      "options": {}
+    },
+    "hiwire": {
+      "name": "Hiwire",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 25,
+        "Master": 80,
+        "Bass": 50,
+        "Middle": 50,
+        "Treble": 50,
+        "Presence": 50
+      },
+      "options": {}
+    },
+    "cali_crunch": {
+      "name": "Cali Crunch",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 50,
+        "Master": 55,
+        "Bass": 65,
+        "Middle": 65,
+        "Treble": 40,
+        "Presence": 50
+      },
+      "options": {}
+    },
+    "class_a30": {
+      "name": "Class A30",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Treble",
+        "Cut"
+      ],
+      "defaults": {
+        "Gain": 40,
+        "Master": 65,
+        "Bass": 45,
+        "Treble": 60,
+        "Cut": 45
+      },
+      "options": {}
+    },
+    "plexi_100": {
+      "name": "Plexi 100",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 60,
+        "Master": 70,
+        "Bass": 70,
+        "Middle": 60,
+        "Treble": 50,
+        "Presence": 50
+      },
+      "options": {}
+    },
+    "plexi_45": {
+      "name": "Plexi 45",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 30,
+        "Master": 95,
+        "Bass": 50,
+        "Middle": 50,
+        "Treble": 50,
+        "Presence": 50
+      },
+      "options": {}
+    },
+    "brit_800": {
+      "name": "Brit 800",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 90,
+        "Master": 36,
+        "Bass": 30,
+        "Middle": 30,
+        "Treble": 15,
+        "Presence": 60
+      },
+      "options": {}
+    },
+    "1987_x_50": {
+      "name": "1987 X 50",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 40,
+        "Master": 70,
+        "Bass": 50,
+        "Middle": 50,
+        "Treble": 50,
+        "Presence": 50
+      },
+      "options": {}
+    },
+    "slo_100": {
+      "name": "Slo 100",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 100,
+        "Master": 50,
+        "Bass": 100,
+        "Middle": 30,
+        "Treble": 61,
+        "Presence": 50
+      },
+      "options": {}
+    },
+    "fireman_hbe": {
+      "name": "Fireman HBE",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 60,
+        "Master": 35,
+        "Bass": 40,
+        "Middle": 55,
+        "Treble": 35,
+        "Presence": 40
+      },
+      "options": {}
+    },
+    "dual_rect": {
+      "name": "Dual Rect",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 45,
+        "Master": 45,
+        "Bass": 55,
+        "Middle": 64,
+        "Treble": 35,
+        "Presence": 60
+      },
+      "options": {}
+    },
+    "die_vh4": {
+      "name": "Die VH4",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Presence"
+      ],
+      "defaults": {
+        "Gain": 40,
+        "Master": 80,
+        "Bass": 50,
+        "Middle": 50,
+        "Treble": 50,
+        "Presence": 50
+      },
+      "options": {}
+    },
+    "mr_z38": {
+      "name": "Mr. Z38",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Cut"
+      ],
+      "defaults": {
+        "Gain": 30,
+        "Master": 60,
+        "Bass": 50,
+        "Middle": 50,
+        "Treble": 50,
+        "Cut": 50
+      },
+      "options": {}
+    },
+    "super_rvb": {
+      "name": "Super Rvb",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble",
+        "Bright"
+      ],
+      "defaults": {
+        "Gain": 30,
+        "Master": 65,
+        "Bass": 38,
+        "Middle": 60,
+        "Treble": 36,
+        "Bright": "Off"
+      },
+      "options": {
+        "Bright": [
+          "On",
+          "Off"
+        ]
+      }
+    },
+    "agl": {
+      "name": "AGL",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Mid Freq",
+        "Middle",
+        "Treble"
+      ],
+      "defaults": {
+        "Gain": 26,
+        "Master": 50,
+        "Bass": 35,
+        "Mid Freq": 54,
+        "Middle": 50,
+        "Treble": 30
+      },
+      "options": {}
+    },
+    "mld": {
+      "name": "MLD",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Mid Freq",
+        "Middle",
+        "Treble"
+      ],
+      "defaults": {
+        "Gain": 35,
+        "Master": 50,
+        "Bass": 50,
+        "Mid Freq": 50,
+        "Middle": 50,
+        "Treble": 50
+      },
+      "options": {}
+    },
+    "optima_air": {
+      "name": "Optima Air",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble"
+      ],
+      "defaults": {
+        "Gain": 35,
+        "Master": 65,
+        "Bass": 50,
+        "Middle": 50,
+        "Treble": 50
+      },
+      "options": {}
+    },
+    "stageman": {
+      "name": "Stageman",
+      "knobs": [
+        "Gain",
+        "Master",
+        "Bass",
+        "Middle",
+        "Treble"
+      ],
+      "defaults": {
+        "Gain": 25,
+        "Master": 45,
+        "Bass": 59,
+        "Middle": 42,
+        "Treble": 50
+      },
+      "options": {}
+    }
+  },
+  "cab": {
+    "parameters": {
+      "knobs": [
+        "Level (dB)",
+        "Low Cut (Hz)",
+        "High Cut (Hz)"
+      ],
+      "defaults": {
+        "Level (dB)": 0,
+        "Low Cut (Hz)": 20,
+        "High Cut (Hz)": 20000
+      }
+    },
+    "list": [
+      "JZ120",
+      "DR112",
+      "TR212",
+      "HIWIRE412",
+      "CALI 112",
+      "A112",
+      "GB412",
+      "M1960AX",
+      "M1960AV",
+      "M1960TV",
+      "SLO412",
+      "FIREMAN 412",
+      "RECT 412",
+      "DIE412",
+      "MATCH212",
+      "UBER412",
+      "BS410",
+      "A212",
+      "M1960AHW",
+      "M1936",
+      "BUDDA112",
+      "Z212",
+      "SUPERVERB410",
+      "VIBROKING310",
+      "AGL_DB810",
+      "AMP_SV212",
+      "AMP_SV410",
+      "AMP_SV810",
+      "BASSGUY410",
+      "EDEN410",
+      "MKB410",
+      "G-HBIRD",
+      "G-J15",
+      "M-D45",
+      "CT-Bogna-T75",
+      "CT-BritJH-G12M",
+      "Rocksta Reactions Marshall JCM8",
+      "Custom 412 SM57 A -5 0 2 45",
+      "Fender Frontman 212 SM57 1",
+      "Rocksta Reactions Marshall 1960",
+      "RoyerR121 0_dc"
+    ]
+  },
+  "amp_cab_map": {
+    "jazz_clean": [
+      "JZ120",
+      "DR112"
+    ],
+    "deluxe_rvb": [
+      "DR112",
+      "A112"
+    ],
+    "super_rvb": [
+      "SUPERVERB410"
+    ],
+    "hiwire": [
+      "HIWIRE412"
+    ],
+    "stageman": [
+      "VIBROKING310"
+    ],
+    "optima_air": [
+      "G-HBIRD",
+      "G-J15"
+    ],
+    "tweedy": [
+      "A112"
+    ],
+    "class_a30": [
+      "MATCH212"
+    ],
+    "mr_z38": [
+      "Z212"
+    ],
+    "plexi_45": [
+      "M1960AX",
+      "M1960AV"
+    ],
+    "plexi_100": [
+      "M1960AX",
+      "M1960AV"
+    ],
+    "1987_x_50": [
+      "M1960AX"
+    ],
+    "cali_crunch": [
+      "CALI 112"
+    ],
+    "brit_800": [
+      "M1960AV",
+      "M1960TV"
+    ],
+    "slo_100": [
+      "SLO412"
+    ],
+    "fireman_hbe": [
+      "FIREMAN 412"
+    ],
+    "dual_rect": [
+      "RECT 412"
+    ],
+    "die_vh4": [
+      "DIE412"
+    ],
+    "bass_mate": [
+      "BS410",
+      "AMP_SV410"
+    ],
+    "agl": [
+      "AGL_DB810"
+    ],
+    "mld": [
+      "AMP_SV410",
+      "AMP_SV810"
+    ]
+  },
+  "mod": {
+    "ce_1": {
+      "name": "CE-1",
+      "knobs": [
+        "Intensity",
+        "Depth",
+        "Rate"
+      ],
+      "defaults": {
+        "Intensity": 50,
+        "Depth": 50,
+        "Rate": 20
+      },
+      "options": {}
+    },
+    "ce_2": {
+      "name": "CE-2",
+      "knobs": [
+        "Rate",
+        "Depth"
+      ],
+      "defaults": {
+        "Rate": 69,
+        "Depth": 39
+      },
+      "options": {}
+    },
+    "st_chorus": {
+      "name": "ST Chorus",
+      "knobs": [
+        "Intensity",
+        "Width",
+        "Rate"
+      ],
+      "defaults": {
+        "Intensity": 39,
+        "Width": 60,
+        "Rate": 30
+      },
+      "options": {}
+    },
+    "vibrato": {
+      "name": "Vibrato",
+      "knobs": [
+        "Rate",
+        "Depth"
+      ],
+      "defaults": {
+        "Rate": 50,
+        "Depth": 50
+      },
+      "options": {}
+    },
+    "flanger": {
+      "name": "Flanger",
+      "knobs": [
+        "Level",
+        "Rate",
+        "Width",
+        "F.Back"
+      ],
+      "defaults": {
+        "Level": 50,
+        "Rate": 50,
+        "Width": 50,
+        "F.Back": 40
+      },
+      "options": {}
+    },
+    "phase_90": {
+      "name": "Phase 90",
+      "knobs": [
+        "Speed"
+      ],
+      "defaults": {
+        "Speed": 30
+      },
+      "options": {}
+    },
+    "phase_100": {
+      "name": "Phase 100",
+      "knobs": [
+        "Intensity",
+        "Speed"
+      ],
+      "defaults": {
+        "Intensity": 50,
+        "Speed": 50
+      },
+      "options": {}
+    },
+    "scf": {
+      "name": "S.C.F.",
+      "knobs": [
+        "Speed",
+        "Width",
+        "Intensity",
+        "Mode"
+      ],
+      "defaults": {
+        "Speed": 70,
+        "Width": 50,
+        "Intensity": 50,
+        "Mode": "Chorus"
+      },
+      "options": {
+        "Mode": [
+          "Chorus",
+          "P.M.",
+          "Flanger"
+        ]
+      }
+    },
+    "u_vibe": {
+      "name": "U-Vibe",
+      "knobs": [
+        "Rate",
+        "Depth",
+        "Mode"
+      ],
+      "defaults": {
+        "Rate": 50,
+        "Depth": 15,
+        "Mode": "Vibrato"
+      },
+      "options": {
+        "Mode": [
+          "Chorus",
+          "Vibrato"
+        ]
+      }
+    },
+    "tremolo": {
+      "name": "Tremolo",
+      "knobs": [
+        "Rate",
+        "Depth"
+      ],
+      "defaults": {
+        "Rate": 50,
+        "Depth": 50
+      },
+      "options": {}
+    },
+    "sch_1": {
+      "name": "SCH-1",
+      "knobs": [
+        "Rate",
+        "Depth",
+        "Tone"
+      ],
+      "defaults": {
+        "Rate": 50,
+        "Depth": 50,
+        "Tone": 50
+      },
+      "options": {}
+    }
+  },
+  "delay": {
+    "analog": {
+      "name": "Analog",
+      "knobs": [
+        "Time",
+        "Repeat",
+        "Mix"
+      ],
+      "defaults": {
+        "Time": 35,
+        "Repeat": 30,
+        "Mix": 28
+      }
+    },
+    "digital": {
+      "name": "Digital",
+      "knobs": [
+        "Time",
+        "Repeat",
+        "Mix"
+      ],
+      "defaults": {
+        "Time": 38,
+        "Repeat": 30,
+        "Mix": 30
+      }
+    },
+    "mod_delay": {
+      "name": "Mod Delay",
+      "knobs": [
+        "Time",
+        "Repeat",
+        "Mix",
+        "Mod"
+      ],
+      "defaults": {
+        "Time": 40,
+        "Repeat": 30,
+        "Mix": 15,
+        "Mod": 65
+      }
+    },
+    "tape_echo": {
+      "name": "Tape Echo",
+      "knobs": [
+        "Time",
+        "Repeat",
+        "Mix"
+      ],
+      "defaults": {
+        "Time": 33,
+        "Repeat": 18,
+        "Mix": 18
+      }
+    },
+    "phi_delay": {
+      "name": "Phi Delay",
+      "knobs": [
+        "Time",
+        "Repeat",
+        "Mix"
+      ],
+      "defaults": {
+        "Time": 39,
+        "Repeat": 36,
+        "Mix": 6
+      }
+    }
+  },
+  "reverb": {
+    "room": {
+      "name": "Room",
+      "knobs": [
+        "Decay",
+        "Level",
+        "Tone"
+      ],
+      "defaults": {
+        "Decay": 50,
+        "Level": 50,
+        "Tone": 50
+      }
+    },
+    "hall": {
+      "name": "Hall",
+      "knobs": [
+        "Decay",
+        "Level",
+        "Tone"
+      ],
+      "defaults": {
+        "Decay": 15,
+        "Level": 10,
+        "Tone": 35
+      }
+    },
+    "plate": {
+      "name": "Plate",
+      "knobs": [
+        "Decay",
+        "Level"
+      ],
+      "defaults": {
+        "Decay": 45,
+        "Level": 35
+      }
+    },
+    "spring": {
+      "name": "Spring",
+      "knobs": [
+        "Decay",
+        "Level"
+      ],
+      "defaults": {
+        "Decay": 39,
+        "Level": 21
+      }
+    },
+    "damp": {
+      "name": "Damp",
+      "knobs": [
+        "Decay",
+        "Level"
+      ],
+      "defaults": {
+        "Decay": 100,
+        "Level": 50
+      }
+    }
+  }
 }

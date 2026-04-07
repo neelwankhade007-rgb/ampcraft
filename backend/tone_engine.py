@@ -493,3 +493,238 @@ def generate_chain(intent: dict, features: dict, play_style: str) -> dict:
     }
 
     return chain
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SIMPLIFIED CHAIN GENERATOR — distortion-based, no lead/rhythm
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Gain score thresholds → tone class override
+_GAIN_TIERS = [
+    (0.135, "metal"),
+    (0.115, "high_gain"),
+    (0.085, "rock"),
+    (0.055, "blues"),
+    (0.025, "clean"),
+    (0.00, "jazz"),
+]
+
+
+def _gain_score(features: dict) -> float:
+    """Distortion-based score: higher = more distorted."""
+    zcr      = features.get("zcr", 0.05)
+    flatness = features.get("flatness", 0.01)
+    rms      = features.get("rms", 0.05)
+    return zcr * 0.6 + flatness * 0.3 + rms * 0.1
+
+
+def _gain_to_class(score: float) -> str:
+    """Map gain_score to a tone class using tier thresholds."""
+    for threshold, cls in _GAIN_TIERS:
+        if score >= threshold:
+            return cls
+    return "jazz"
+
+
+def detect_lead_simple(features: dict) -> str:
+    """Detects lead vs rhythm based on sustained energy and noise."""
+    rms = features.get("rms", 0.1)
+    zcr = features.get("zcr", 0.05)
+
+    # Lead = sustained + less noisy
+    if rms > 0.12 and zcr < 0.16:
+        return "lead"
+
+    return "rhythm"
+
+
+def detect_lead_type(features: dict) -> str:
+    """Differentiates between tight/distorted leads and expressive leads."""
+    zcr = features.get("zcr", 0.05)
+    flatness = features.get("flatness", 0.01)
+
+    # High distortion/fizz → tight metal lead
+    if zcr > 0.13 or flatness > 0.04:
+        return "tight_lead"
+
+    return "expressive_lead"
+
+
+def detect_palm_mute(features: dict) -> bool:
+    """Detects palm-muted playing based on high attack and low sustain."""
+    zcr = features.get("zcr", 0.05)
+    rms = features.get("rms", 0.1)
+
+    # Tight, percussive, low sustain
+    if zcr > 0.13 and rms < 0.15:
+        return True
+
+    return False
+
+
+def generate_chain_basic(intent: dict, features: dict) -> dict:
+    """
+    Simplified chain generator.
+    Pipeline: extract_named → classify_tone → generate_chain_basic
+
+    Uses gain_score to override tone_class for accurate amp selection.
+    No lead/rhythm, no hybrid, no play_style.
+    """
+    # ── Gain-based tone class override ────────────────────────────────────
+    zcr = features.get("zcr", 0.05)
+    flatness = features.get("flatness", 0.01)
+    rms = features.get("rms", 0.1)
+    score = _gain_score(features)
+    palm_muted = detect_palm_mute(features)
+
+    # 🔥 DOMINANT DISTORTION RULE
+    if zcr > 0.14:
+        tone_class = "metal"
+    elif zcr > 0.11:
+        tone_class = "high_gain"
+    else:
+        tone_class = _gain_to_class(score)
+
+    play_style = detect_lead_simple(features)
+    lead_type = detect_lead_type(features)
+
+    # DEBUG LOGGING (BACKEND)
+    print("DEBUG → zcr:", zcr)
+    print("DEBUG → rms:", features.get("rms"))
+    print("DEBUG → palm_muted:", palm_muted)
+    print("DEBUG → tone_class:", tone_class)
+
+    print(f"[chain_basic] gain_score={score:.4f} → tone_class={tone_class} | style={play_style} | mute={palm_muted} | type={lead_type}")
+
+    # ── Amp: first amp in the group for this class ────────────────────────
+    amps = AMP_GROUPS.get(tone_class, AMP_GROUPS["clean"])
+    amp_id = amps[0]
+
+    # ── Cab: strict amp→cab mapping ───────────────────────────────────────
+    cab_id = pick_cab_for_amp(amp_id)
+
+    # ── EFX: pick from group ──────────────────────────────────────────────
+    efx_list = EFX_GROUPS.get(tone_class, EFX_GROUPS["clean"])
+    efx_id = efx_list[0]
+
+    # ── Delay / Reverb: style-aware rules ──────────────────────────────
+
+    # Palm mute priority: always dry
+    if palm_muted:
+        delay_id = "None"
+        reverb_id = "None"
+
+    elif tone_class == "metal":
+        if play_style == "lead":
+            if lead_type == "tight_lead":
+                delay_id = "None"
+                reverb_id = "None"
+            else:
+                delay_id = "analog"
+                reverb_id = "plate"
+        else:
+            delay_id = "None"
+            reverb_id = "None"
+
+    elif tone_class == "high_gain":
+        if palm_muted:
+            delay_id = "None"
+            reverb_id = "None"
+        elif play_style == "lead":
+            delay_id = "analog"
+            reverb_id = "plate"
+        else:
+            delay_id = "None"
+            reverb_id = "None"
+
+    elif tone_class == "rock":
+        if play_style == "lead":
+            delay_id = "analog"
+            reverb_id = "room"
+        else:
+            delay_id = "None"
+            reverb_id = "room"
+
+    else:  # clean, blues, jazz, bass
+        if play_style == "lead":
+            delay_id = "tape_echo"
+            reverb_id = "spring"
+        else:
+            delay_id, _ = DELAY_GROUPS.get(tone_class, ("analog", 300))
+            reverb_id, _ = REVERB_GROUPS.get(tone_class, ("spring", 5))
+
+    # ── EQ character ──────────────────────────────────────────────────────
+    centroid = features.get("centroid", 2500)
+    rolloff  = features.get("rolloff", 5000)
+    rms      = features.get("rms", 0.1)
+    char, _, _, _ = tone_eq(centroid)
+
+    # ── Resolve real-world Cab units ──────────────────────────────────────
+    low_cut  = int(min(300, max(20, centroid * 0.08)))
+    high_cut = int(min(20000, max(2000, rolloff * 1.5)))
+    level_db = 0.0
+
+    # ── Resolve display names ─────────────────────────────────────────────
+    def get_name(cat, gid):
+        if gid == "None": return "None"
+        if cat == "cab": return gid
+        return GEAR.get(cat, {}).get(gid, {}).get("name", format_name(gid))
+
+    # ── Build chain ───────────────────────────────────────────────────────
+    chain = {
+        "style":          STYLE_NAMES.get(tone_class, tone_class.title()),
+        "gain_score":     round(score, 4),
+        "play_style":     play_style,
+        "lead_type":      lead_type,
+        "palm_muted":     palm_muted,
+        "tone_character": char,
+        "noise_gate": {
+            "type":     get_name("noise_gate", "noise_gate"),
+            "enabled":  True,
+            "settings": get_gear_settings("noise_gate", "noise_gate", features, tone_class),
+        },
+        "efx": {
+            "type":     get_name("efx", efx_id),
+            "enabled":  efx_id != "None",
+            "settings": get_gear_settings("efx", efx_id, features, tone_class),
+        },
+        "amp": {
+            "type":     get_name("amp", amp_id),
+            "enabled":  True,
+            "settings": get_gear_settings("amp", amp_id, features, tone_class),
+        },
+        "cab": {
+            "type":     get_name("cab", cab_id),
+            "enabled":  True,
+            "settings": [
+                {"label": "Model",         "value": get_name("cab", cab_id)},
+                {"label": "Low Cut (Hz)",  "value": low_cut},
+                {"label": "High Cut (Hz)", "value": high_cut},
+                {"label": "Level (dB)",    "value": level_db}
+            ],
+        },
+        "mod": {
+            "type":     "None",
+            "enabled":  False,
+            "settings": [],
+        },
+        "delay": {
+            "type":     get_name("delay", delay_id),
+            "enabled":  delay_id != "None",
+            "settings": get_gear_settings("delay", delay_id, features, tone_class) if delay_id != "None" else [],
+        },
+        "reverb": {
+            "type":     get_name("reverb", reverb_id),
+            "enabled":  reverb_id != "None",
+            "settings": get_gear_settings("reverb", reverb_id, features, tone_class) if reverb_id != "None" else [],
+        },
+        "debug_features": {
+            "zcr": features.get("zcr"),
+            "flatness": features.get("flatness"),
+            "rms": features.get("rms"),
+            "centroid": features.get("centroid"),
+            "gain_score": round(score, 4)
+        }
+    }
+
+    return chain

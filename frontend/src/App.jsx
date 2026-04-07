@@ -178,7 +178,7 @@ function Knob({ label, value, max = 100 }) {
   );
 }
 
-function ResultDashboard({ chain, features }) {
+function ResultDashboard({ chain, features, debug }) {
   const styleKey = (chain.style ?? 'clean').toLowerCase().replace(' ', '_')
   const meta     = STYLE_META[styleKey] ?? STYLE_META.clean
   const charKey  = chain.tone_character ?? 'balanced'
@@ -225,11 +225,13 @@ function ResultDashboard({ chain, features }) {
           ))}
         </div>
 
-        {/* Audio Features — compact single row at the bottom */}
+        {/* Debug Features — compact single row at the bottom */}
         <div className="features-row">
-          <span className="feature-pill">Centroid <strong>{Math.round(features.centroid)} Hz</strong></span>
-          <span className="feature-pill">Energy <strong>{Math.round(features.rms * 100)}%</strong></span>
-          <span className="feature-pill">ZCR <strong>{Math.round(features.zcr * 100)}%</strong></span>
+          <span className="feature-pill">ZCR <strong>{debug?.zcr ? (debug.zcr * 100).toFixed(1) : 0}%</strong></span>
+          <span className="feature-pill">Flatness <strong>{debug?.flatness ? (debug.flatness * 100).toFixed(1) : 0}%</strong></span>
+          <span className="feature-pill">RMS <strong>{debug?.rms ? (debug.rms * 100).toFixed(1) : 0}%</strong></span>
+          <span className="feature-pill">Centroid <strong>{Math.round(debug?.centroid || 0)} Hz</strong></span>
+          <span className="feature-pill">Gain Score <strong>{debug?.gain_score || 0}</strong></span>
         </div>
 
       </div>
@@ -244,7 +246,6 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
-  const [chainMode, setChainMode] = useState('rhythm')  // 'rhythm' | 'lead'
 
   const onDrop = useCallback((e) => {
     e.preventDefault()
@@ -258,7 +259,6 @@ export default function App() {
     setFile(f)
     setResult(null)
     setError(null)
-    setChainMode('rhythm')
   }
 
   const analyze = async () => {
@@ -331,25 +331,11 @@ export default function App() {
       {/* ── Main Dashboard Workspace ── */}
       <main className="main-content">
         {result ? (
-          <>
-            {/* Rhythm / Lead toggle — only show if lead chain differs */}
-            {result.chain_lead && (
-              <div className="mode-toggle">
-                <button
-                  className={`mode-btn ${chainMode === 'rhythm' ? 'active' : ''}`}
-                  onClick={() => setChainMode('rhythm')}
-                >Rhythm</button>
-                <button
-                  className={`mode-btn ${chainMode === 'lead' ? 'active' : ''}`}
-                  onClick={() => setChainMode('lead')}
-                >Lead</button>
-              </div>
-            )}
-            <ResultDashboard
-              chain={chainMode === 'lead' && result.chain_lead ? result.chain_lead : result.chain}
-              features={result.features}
-            />
-          </>
+          <ResultDashboard
+            chain={result.chain}
+            features={result.features}
+            debug={result.debug}
+          />
         ) : (
           <div className="empty-state">
             Please upload a guitar track to generate a processing chain.

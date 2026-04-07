@@ -100,6 +100,19 @@ def extract_hybrid(file_path: str) -> dict:
     pitch_diff_norm = pitch_diff / (np.max(pitch_diff) + 1e-6)
     pitch_stability = 1.0 - pitch_diff_norm
 
+    # --- VIBRATO & PITCH STABILITY (global) ---
+    pitch_clean = f0[~np.isnan(f0)]
+    if len(pitch_clean) > 1:
+        pitch_std = float(np.std(pitch_clean))
+        vibrato_strength = float(np.std(np.diff(pitch_clean)))
+    else:
+        pitch_std = 0.0
+        vibrato_strength = 0.0
+
+    # Thresholds (tunable)
+    pitch_stable = pitch_std < 20       # low std → stable note → lead
+    has_vibrato = vibrato_strength > 2   # periodic oscillation → vibrato → lead
+
     # --- ACTIVE MASK ---
     active_mask = rms > (np.max(rms) * 0.03)
     if not np.any(active_mask):
@@ -117,13 +130,26 @@ def extract_hybrid(file_path: str) -> dict:
         if not active_mask[i]:
             continue
 
-        # 🎯 FEATURES
-        attack = flux_norm[i] + onset_vector[i]   # strong indicator of rhythm
-        # A true lead note has both sustained energy and a stable fundamental pitch tracking
-        sustain = rms_norm[i] * (1 - flux_norm[i]) * pitch_stability[i]
+        # 🎯 BASE SCORES
+        attack = flux_norm[i] + onset_vector[i]
+        sustain = rms_norm[i] * (1 - flux_norm[i])
+
+        lead_score = sustain
+        rhythm_score = attack
+
+        # 🔥 ADD PITCH INTELLIGENCE
+        if pitch_stable:
+            lead_score += 0.25
+
+        if has_vibrato:
+            lead_score += 0.35
+
+        # penalize rhythm if expressive
+        if has_vibrato:
+            rhythm_score -= 0.1
 
         # 🎯 DECISION
-        if sustain > attack:
+        if lead_score > rhythm_score:
             lead_idx.append(i)
         else:
             rhythm_idx.append(i)
@@ -156,7 +182,16 @@ def extract_hybrid(file_path: str) -> dict:
             "zcr": float(np.mean(zcr[indices])),
             "rms": float(np.mean(rms[indices])),
             "flux": float(np.mean(flux[indices])),
+            # 🔥 NEW — pitch intelligence
+            "pitch_std": pitch_std,
+            "vibrato": vibrato_strength,
         }
+
+    # 🔥 DEBUG PRINT
+    print("pitch_std:", pitch_std)
+    print("vibrato:", vibrato_strength)
+    print("dominant:", dominant)
+    print("lead_ratio:", lead_ratio, "rhythm_ratio:", rhythm_ratio)
 
     return {
         "lead": _feat(lead_idx),
@@ -164,6 +199,11 @@ def extract_hybrid(file_path: str) -> dict:
         "lead_ratio": lead_ratio,
         "rhythm_ratio": rhythm_ratio,
         "hybrid_ratio": hybrid_ratio,
-        "dominant": dominant
+        "dominant": dominant,
+        # 🎸 Pitch / vibrato analytics
+        "pitch_std": pitch_std,
+        "vibrato_strength": vibrato_strength,
+        "pitch_stable": pitch_stable,
+        "has_vibrato": has_vibrato,
     }
 

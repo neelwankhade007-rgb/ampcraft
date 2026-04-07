@@ -647,3 +647,196 @@ body {
 .mode-btn:not(.active):hover {
   color: var(--text);
 }
+
+/* ── Responsive: Half-screen / Narrow windows ────── */
+
+/* Make knobs grid wrap instead of overflow */
+.knobs-grid {
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+/* Allow chain items to shrink more */
+.chain-item {
+  min-width: 0;
+}
+
+/* ── < 1200px: Tighten spacing ────────────────────── */
+@media (max-width: 1200px) {
+  .sidebar {
+    width: 260px;
+    min-width: 260px;
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .brand { font-size: 2rem; }
+
+  .dashboard-canvas {
+    padding: var(--space-8) var(--space-6);
+  }
+
+  .tone-name { font-size: 2rem; }
+
+  .chain-item {
+    flex: 1 1 200px;
+    max-width: none;
+  }
+}
+
+/* ── < 900px: Sidebar on top, vertical layout ─────── */
+@media (max-width: 900px) {
+  .app-container {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: unset;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-6);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+
+  .sidebar-header {
+    margin-bottom: 0;
+  }
+
+  .brand { font-size: 1.6rem; }
+  .tagline { display: none; }
+
+  .upload-section {
+    flex: 1;
+    min-width: 200px;
+    margin-bottom: 0;
+  }
+
+  .drop-zone {
+    padding: var(--space-4);
+  }
+
+  .btn-analyze {
+    margin-top: 0;
+    width: auto;
+    padding: var(--space-3) var(--space-6);
+    white-space: nowrap;
+  }
+
+  .main-content {
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+
+  .dashboard-canvas {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .tone-name { font-size: 1.8rem; }
+
+  .knob {
+    width: 48px;
+    height: 48px;
+  }
+
+  .knob-dot {
+    transform-origin: 50% 20px;
+  }
+
+  .icon-box {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chain-item {
+    flex: 1 1 180px;
+    max-width: none;
+  }
+}
+
+/* ── < 600px: Fully compact mobile-ish ────────────── */
+@media (max-width: 600px) {
+  .sidebar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--space-4);
+  }
+
+  .sidebar-header { text-align: center; }
+  .brand { font-size: 1.4rem; }
+
+  .btn-analyze {
+    width: 100%;
+  }
+
+  .dashboard-canvas {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .panel {
+    padding: var(--space-4);
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .tone-name { font-size: 1.5rem; }
+
+  .knobs-grid {
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  .knob {
+    width: 42px;
+    height: 42px;
+  }
+
+  .knob-dot {
+    height: 10px;
+    transform-origin: 50% 18px;
+  }
+
+  .knob-value { font-size: 0.9rem; }
+
+  .tone-chain-container {
+    padding: var(--space-3);
+    gap: var(--space-1);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .chain-block {
+    min-width: 42px;
+  }
+
+  .icon-box {
+    width: 36px;
+    height: 36px;
+  }
+
+  .chain-grid {
+    gap: var(--space-3);
+  }
+
+  .chain-item {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .features-row {
+    gap: var(--space-3);
+  }
+
+  .eq-section {
+    padding: var(--space-4);
+  }
+}
+

@@ -1,6 +1,6 @@
 # 🎸 AmpCraft
 
-> Upload any guitar audio and get a complete amp + effects signal chain preset — powered by audio signal processing.
+> Upload any guitar audio and get a complete amp + effects signal chain preset — powered by professional audio signal processing.
 
 ---
 
@@ -9,18 +9,16 @@
 ```
 audio file
    ↓
-feature_extractor.py  →  trim silence, onset detection, pitch tracking, flux
+feature_extractor.py  →  extracts ZCR, RMS, flatness, centroid, and rolloff
    ↓
-hybrid playing engine →  analyzes rhythm vs. lead ratio
-   ↓
-classifier.py         →  zero-shot KNN matches features to ideal tone profiles
+tone_engine.py        →  Dominant Distortion Rule (ZCR-based) + Lead/Palm-Mute Detection
    ↓
 tone_engine.py        →  builds smart gear chain (amp, cab, efx, mod, delay, reverb)
    ↓
 JSON response
 ```
 
-No randomness. Same audio always gives the same preset.
+No randomness. No complex ML latency. Just fast, deterministic heuristics that match the physics of guitar tone.
 
 ---
 
@@ -29,15 +27,15 @@ No randomness. Same audio always gives the same preset.
 ```
 ampcraft/
 ├── backend/
-│   ├── main.py               # FastAPI routes + tone classification heuristic
-│   ├── tone_engine.py        # Gear selection engine (all logic lives here)
+│   ├── main.py               # FastAPI routes + response orchestration
+│   ├── tone_engine.py        # Core logic: Classification, style detection, and chain generation
 │   ├── feature_extractor.py  # Audio feature extraction via librosa
-│   ├── gear.json             # Full gear catalogue (amps, cabs, efx, mod, delay, reverb)
+│   ├── gear.json             # Gear database (amps, cabs, effects parameters)
 │   ├── requirements.txt
 │   └── uploads/              # Uploaded audio files (auto-created)
 └── frontend/
     ├── src/
-    │   ├── App.jsx           # React UI
+    │   ├── App.jsx           # React UI with real-time debug visualization
     │   └── App.css
     └── index.html
 ```
@@ -70,51 +68,63 @@ npm run dev
 | Method | Endpoint   | Description                       |
 |--------|------------|-----------------------------------|
 | GET    | `/`        | Health check                      |
-| POST   | `/upload`  | Save file without analyzing       |
 | POST   | `/analyze` | Upload audio → return tone preset |
 
-### `/analyze` response
+### `/analyze` response example
 
 ```json
 {
   "chain": {
-    "style": "rock",
+    "style": "Metal",
+    "gain_score": 0.1567,
+    "play_style": "rhythm",
+    "palm_muted": true,
     "tone_character": "balanced",
-    "noise_gate": { "type": "noise_gate", "enabled": true, "threshold": -45 },
-    "efx": { "type": "t_screamer", "gain": 6 },
-    "amp": { "type": "plexi_100", "gain": 6, "volume": 7, "treble": 6, "mid": 6, "bass": 6 },
-    "cab": { "type": "m1960av", "mic": "SM57" }
+    "amp": { "type": "CALI IV", "enabled": true, "settings": [...] },
+    "cab": {
+      "type": "CALI 112",
+      "enabled": true,
+      "settings": [
+        { "label": "Model", "value": "CALI 112" },
+        { "label": "Low Cut (Hz)", "value": 80 },
+        { "label": "High Cut (Hz)", "value": 6500 },
+        { "label": "Level (dB)", "value": 0.0 }
+      ]
+    },
+    "delay": { "type": "None", "enabled": false, "settings": [] }
   },
-  "chain_lead": {
-    "style": "high_gain",
-    "amp": { "type": "slo_100", "gain": 7, "volume": 6, "treble": 7, "mid": 5, "bass": 5 }
-  },
-  "features": {
+  "debug": {
     "centroid": 2107,
     "rolloff": 4446,
     "flatness": 0.0031,
-    "zcr": 0.0879,
-    "rms": 0.2067
-  },
-  "hybrid": {
-    "dominant": "hybrid",
-    "ratio_rhythm": 0.45,
-    "ratio_lead": 0.55,
-    "hybrid_ratio": 0.45
+    "zcr": 0.1589,
+    "rms": 0.2067,
+    "gain_score": 0.1567
   }
 }
 ```
 
 ---
 
-## Playing-Style & Tone Classification
+## Tone Classification & Intelligence
 
-AmpCraft now utilizes **Intelligent Playing-Style Detection**:
-1. **Hybrid Extractions:** Uses onset detection, pitch tracking, and spectral flux to segment frames into **lead** vs. **rhythm** playing styles.
-2. **Zero-Shot KNN:** Compares the extracted features (ZCR, RMS, Centroid, Flatness, Rolloff) against pre-defined "Ideal Acoustic Profiles" using Euclidean distance. ZCR and RMS are heavily weighted to distinguish tightness and energy.
-3. **Multi-Chain Generation:** The backend provides specialized gear configurations for both rhythm playing and lead playing based on the track's dynamics.
+AmpCraft uses a professional-grade **Dominant Distortion Heuristic** to map audio features to gear:
 
-> **Note:** Full-band mixes (drums + bass + vocals) pull spectral centroid down. For best accuracy, upload an isolated guitar track or DI signal.
+### 1. Dominant Distortion Rule (ZCR-based)
+Categorizes tones into **Metal**, **High Gain**, **Rock**, **Blues**, and **Clean** based on harmonic energy and "fizz." 
+- **High-Attack Sensitivity**: Prioritizes ZCR (Zero Crossing Rate) to ensure heavily distorted parts are identified even at lower volumes.
+
+### 2. Intelligent Playing-Style Detection
+- **Lead vs Rhythm**: Automatically distinguishes between singing solos and dry rhythm parts using hybrid RMS and spectral feature analysis.
+- **Palm Mute Detection**: Identifies tight, percussive riffage. When detected, the engine forces the signal into a "dry" state (disabling delay/reverb) to maintain maximum clarity and punch.
+
+### 3. Style-Aware Effects Routing
+- Dynamically adjusts ambience (Delay, Reverb, Modulation) based on the genre. Metal rhythm stays tight and dry, while Rock and Blues leads receive warm, analog-style ambience.
+
+### 4. Real-World Audio Units
+- **Cabinet (IR) Parameters** are expressed in professional mixing units:
+    - **Frequency cuts in Hz** (20–20,000 Hz).
+    - **Output levels in dB** (-12.0 to +12.0 dB).
 
 ---
 

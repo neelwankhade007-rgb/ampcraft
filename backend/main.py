@@ -1,9 +1,16 @@
+import sys
+import os
+
+# Add the backend directory to sys.path to resolve module imports
+# when running from the root directory (e.g. uvicorn backend.main:app)
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from tone_engine import generate_chain_basic, validate_gear
 from feature_extractor import extract_named
 from classifier import classify_tone
-import shutil, os
+import shutil, uuid
 
 app = FastAPI()
 
@@ -28,10 +35,11 @@ def home():
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
     try:
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        safe_name = file.filename.replace(" ", "_") if file.filename else f"upload_{uuid.uuid4().hex}.wav"
+        file_path = os.path.join(UPLOAD_DIR, safe_name)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        return {"filename": file.filename, "message": "File uploaded successfully ✅"}
+        return {"filename": safe_name, "message": "File uploaded successfully ✅"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -39,7 +47,8 @@ async def upload(file: UploadFile = File(...)):
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
     try:
-        file_path = os.path.join(UPLOAD_DIR, os.path.basename(file.filename))
+        safe_name = os.path.basename(file.filename).replace(" ", "_") if file.filename else f"upload_{uuid.uuid4().hex}.wav"
+        file_path = os.path.join(UPLOAD_DIR, safe_name)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 

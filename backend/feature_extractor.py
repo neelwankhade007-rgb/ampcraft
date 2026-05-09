@@ -41,30 +41,45 @@ def extract_features(file_path: str) -> np.ndarray:
 
 
 def extract_named(file_path: str) -> dict:
-    """
-    Same logic as extract_features but returns a human-readable dict with integers.
-    """
     y_raw, sr = librosa.load(file_path)
     y, _ = librosa.effects.trim(y_raw, top_db=25)
 
-    rms = librosa.feature.rms(y=y)[0]
-    # Gate threshold: 3% of peak energy
-    active_mask = rms > (np.max(rms) * 0.03)
-    
+    rms_frames = librosa.feature.rms(y=y)[0]
+    active_mask = rms_frames > (np.max(rms_frames) * 0.03)
     if not np.any(active_mask):
-        active_mask = np.ones_like(rms, dtype=bool)
-    
+        active_mask = np.ones_like(rms_frames, dtype=bool)
+
     centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
     rolloff  = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
     flatness = librosa.feature.spectral_flatness(y=y)[0]
     zcr      = librosa.feature.zero_crossing_rate(y)[0]
+
+    # Spectral flux: mean frame-to-frame spectral change over active frames
+    S = np.abs(librosa.stft(y))
+    flux_frames = np.concatenate([[0], np.sqrt(np.sum(np.diff(S, axis=1) ** 2, axis=0))])
+    # Normalize flux to 0.0–1.0 range
+    flux_max = np.max(flux_frames) + 1e-6
+    flux_norm_frames = flux_frames / flux_max
+
+    # Pad or trim flux to match active_mask length
+    min_len = min(len(active_mask), len(flux_norm_frames))
+    active_mask_trimmed = active_mask[:min_len]
+    flux_active = flux_norm_frames[:min_len][active_mask_trimmed]
+    flux_val = float(np.mean(flux_active)) if len(flux_active) > 0 else 0.0
+
+    rms_val = float(np.mean(rms_frames[active_mask]))
+    # Normalize RMS: divide by 0.2 (typical peak for a mixed guitar track).
+    # Clamp to 1.0. This prevents rms * 200 blowing up knob values.
+    rms_norm = float(min(1.0, rms_val / 0.2))
 
     return {
         "centroid": int(np.mean(centroid[active_mask])),
         "rolloff":  int(np.mean(rolloff[active_mask])),
         "flatness": float(np.mean(flatness[active_mask])),
         "zcr":      float(np.mean(zcr[active_mask])),
-        "rms":      float(np.mean(rms[active_mask])),
+        "rms":      rms_val,
+        "rms_norm": rms_norm,   # NEW — stable 0.0–1.0, use this in knob math
+        "flux":     flux_val,   # NEW — 0.0–1.0, high = transient/distorted, low = clean/sustained
     }
 
 

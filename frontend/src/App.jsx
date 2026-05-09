@@ -1,238 +1,422 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import axios from 'axios'
 import './App.css'
 
-// ── Tone style meta ─────────────────────────────────────────────────────────
-const STYLE_META = {
-  jazz:      { color: '#7c6fcd', desc: 'Warm, mellow, full jazz voicing' },
-  clean:     { color: '#4caf90', desc: 'Glassy, transparent, studio clean' },
-  blues:     { color: '#e07030', desc: 'Gritty, soulful, vocal overdrive' },
-  rock:      { color: '#f5a623', desc: 'Punchy crunch, classic rock drive' },
-  high_gain: { color: '#f5c842', desc: 'Aggressive, tight, modern gain' },
-  metal:     { color: '#e84040', desc: 'Heavy, tight, crushing distortion' },
-  bass:      { color: '#4c8faf', desc: 'Deep, warm, low-end foundation' },
+// ── Genre theme map ──────────────────────────────────────────────────────────
+const GENRE_THEMES = {
+  jazz: {
+    accent:      '#a78bfa',
+    accentDim:   '#7c6fcd',
+    glow:        'rgba(167,139,250,0.15)',
+    bgTint:      '#08070f',
+    gridColor:   '#100f1a',
+    panelBorder: 'rgba(167,139,250,0.18)',
+    label:       'Jazz',
+    desc:        'Warm, mellow, full jazz voicing',
+  },
+  clean: {
+    accent:      '#34d399',
+    accentDim:   '#4caf90',
+    glow:        'rgba(52,211,153,0.12)',
+    bgTint:      '#070f0b',
+    gridColor:   '#0d1a12',
+    panelBorder: 'rgba(52,211,153,0.16)',
+    label:       'Clean',
+    desc:        'Glassy, transparent, studio clean',
+  },
+  blues: {
+    accent:      '#fb923c',
+    accentDim:   '#e07030',
+    glow:        'rgba(251,146,60,0.15)',
+    bgTint:      '#0f0a06',
+    gridColor:   '#1a1106',
+    panelBorder: 'rgba(251,146,60,0.2)',
+    label:       'Blues',
+    desc:        'Gritty, soulful, vocal overdrive',
+  },
+  rock: {
+    accent:      '#fbbf24',
+    accentDim:   '#f5a623',
+    glow:        'rgba(251,191,36,0.14)',
+    bgTint:      '#0f0e06',
+    gridColor:   '#191700',
+    panelBorder: 'rgba(251,191,36,0.2)',
+    label:       'Rock',
+    desc:        'Punchy crunch, classic rock drive',
+  },
+  high_gain: {
+    accent:      '#f472b6',
+    accentDim:   '#e040a0',
+    glow:        'rgba(244,114,182,0.14)',
+    bgTint:      '#0f080e',
+    gridColor:   '#190010',
+    panelBorder: 'rgba(244,114,182,0.2)',
+    label:       'High Gain',
+    desc:        'Aggressive, tight, modern gain',
+  },
+  metal: {
+    accent:      '#f87171',
+    accentDim:   '#e84040',
+    glow:        'rgba(248,113,113,0.16)',
+    bgTint:      '#0f0707',
+    gridColor:   '#1a0505',
+    panelBorder: 'rgba(248,113,113,0.22)',
+    label:       'Metal',
+    desc:        'Heavy, tight, crushing distortion',
+  },
+  bass: {
+    accent:      '#38bdf8',
+    accentDim:   '#4c8faf',
+    glow:        'rgba(56,189,248,0.12)',
+    bgTint:      '#060d12',
+    gridColor:   '#0a1520',
+    panelBorder: 'rgba(56,189,248,0.16)',
+    label:       'Bass',
+    desc:        'Deep, warm, low-end foundation',
+  },
 }
 
-// ── Signal chain config ───────────────────────────────────────────────────────
-function getChainBlocks(chain) {
-  const blocks = [
-    { key: 'noise_gate', title: 'GATE', data: chain.noise_gate },
-    { key: 'efx',        title: 'EFX',  data: chain.efx },
-    { key: 'amp',        title: 'AMP',  data: chain.amp },
-    { key: 'cab',        title: 'CAB',  data: chain.cab },
-    { key: 'mod',        title: 'MOD',  data: chain.mod },
-    { key: 'delay',      title: 'DLY',  data: chain.delay },
-    { key: 'reverb',     title: 'RVB',  data: chain.reverb },
-  ];
+// ── Chain order & accent colors ──────────────────────────────────────────────
+const CHAIN_SLOTS = [
+  { key: 'noise_gate', label: 'GATE', color: '#a3e635' },
+  { key: 'efx',        label: 'EFX',  color: '#fbbf24' },
+  { key: 'amp',        label: 'AMP',  color: '#f87171' },
+  { key: 'cab',        label: 'IR',   color: '#22d3ee' },
+  { key: 'mod',        label: 'MOD',  color: '#c084fc' },
+  { key: 'delay',      label: 'DLY',  color: '#60a5fa' },
+  { key: 'reverb',     label: 'RVB',  color: '#fb923c' },
+]
 
-    return blocks.map(b => {
-    const isEnabled = b.data?.enabled !== false && b.data?.type !== 'None';
-    const colors = {
-      noise_gate: '#a3e635', efx: '#fbbf24', amp: '#f87171',
-      cab: '#22d3ee', mod: '#c084fc', delay: '#60a5fa', reverb: '#fb923c'
-    };
-    
-    const settings = (b.data?.settings || []).map(s => ({
-      label: s.label,
-      value: typeof s.value === 'number' ? s.value.toFixed(0) : s.value
-    }));
-
-    if (b.data?.type && b.data.type !== 'None' && !settings.some(s => s.label === 'Model' || s.label === 'Pedal' || s.label === 'Type')) {
-      settings.unshift({ label: 'Model', value: b.data.type });
-    }
-
-    return {
-      key: b.key,
-      title: b.title,
-      enabled: isEnabled,
-      settings: settings,
-      color: colors[b.key] || '#f5a623'
-    };
-  });
+// ── SVG icons for each slot ──────────────────────────────────────────────────
+const SLOT_ICONS = {
+  noise_gate: (c) => (
+    <svg viewBox="0 0 28 28" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
+      <path d="M3 14h4l2.5-6 5 12 2.5-6H25" />
+      <line x1="3" y1="14" x2="25" y2="14" stroke={c} strokeOpacity="0.15" strokeDasharray="2 2" />
+    </svg>
+  ),
+  efx: (c) => (
+    <svg viewBox="0 0 28 28" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
+      <rect x="7" y="4" width="14" height="20" rx="3" />
+      <circle cx="14" cy="11" r="2.5" />
+      <circle cx="10" cy="18" r="1.2" /><circle cx="18" cy="18" r="1.2" />
+    </svg>
+  ),
+  amp: (c) => (
+    <svg viewBox="0 0 28 28" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
+      <rect x="3" y="6" width="22" height="16" rx="2" />
+      <path d="M3 11h22" />
+      <circle cx="8"  cy="8.5" r="1" fill={c} stroke="none" />
+      <circle cx="12" cy="8.5" r="1" fill={c} stroke="none" />
+      <circle cx="16" cy="8.5" r="1" fill={c} stroke="none" />
+      <circle cx="14" cy="18" r="3.5" />
+    </svg>
+  ),
+  cab: (c) => (
+    <svg viewBox="0 0 28 28" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
+      <rect x="4" y="5" width="20" height="18" rx="2" />
+      <circle cx="14" cy="14" r="5" />
+      <circle cx="14" cy="14" r="1.5" fill={c} stroke="none" />
+    </svg>
+  ),
+  mod: (c) => (
+    <svg viewBox="0 0 28 28" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
+      <path d="M3 14c3-7 5 7 8 0s5-7 8 0 5 7 8 0" strokeWidth="1.8" />
+    </svg>
+  ),
+  delay: (c) => (
+    <svg viewBox="0 0 28 28" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
+      <circle cx="14" cy="14" r="9" />
+      <polyline points="14,8 14,14 18,18" />
+      <path d="M5.5 14 H2" /><path d="M26 14 H22.5" strokeOpacity="0.4" />
+    </svg>
+  ),
+  reverb: (c) => (
+    <svg viewBox="0 0 28 28" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
+      <rect x="4"  y="4"  width="8"  height="8"  rx="1" strokeOpacity="0.35" />
+      <rect x="8"  y="8"  width="8"  height="8"  rx="1" strokeOpacity="0.6" />
+      <rect x="12" y="12" width="12" height="12" rx="1" />
+    </svg>
+  ),
 }
 
-// ── Components ────────────────────────────────────────────────────────────────
-function ChainBlock({ title, enabled, settings, color }) {
-  return (
-    <div className={`chain-block ${enabled ? 'block-on' : 'block-off'}`} style={{ '--block-accent': color }}>
-      <div className="block-header">
-        <span className="block-title">{title}</span>
-      </div>
-      <div className="block-settings">
-        {settings.map((s, idx) => (
-          <div key={idx} className="block-row">
-            <span className="block-label">{s.label}</span>
-            <span className="block-value">{s.value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+// ── Backend health check ─────────────────────────────────────────────────────
+function BackendStatus() {
+  const [status, setStatus] = useState('checking')
 
-// Helper: Tone Chain Icon SVGs
-const ChainIcons = {
-  noise_gate: (color) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12h3l2-5 4 10 2-5h9" />
-      <path d="M5 12h14" strokeOpacity="0.2" strokeDasharray="2 2" />
-    </svg>
-  ),
-  efx: (color) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="3" width="12" height="18" rx="2" />
-      <circle cx="12" cy="9" r="2" />
-      <circle cx="9" cy="15" r="1" /><circle cx="15" cy="15" r="1" />
-    </svg>
-  ),
-  amp: (color) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="M3 9h18" /><path d="M6 7h1" /><path d="M9 7h1" /><path d="M12 7h1" />
-      <path d="M7 12l10 4" strokeOpacity="0.3" /><path d="M7 14l10 2" strokeOpacity="0.3" />
-    </svg>
-  ),
-  cab: (color) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="4" width="16" height="16" rx="2" />
-      <circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="1" />
-    </svg>
-  ),
-  mod: (color) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12c4-8 8 8 12 0s8-8 12 0" />
-    </svg>
-  ),
-  delay: (color) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12c0-4 3-7 7-7s7 3 7 7-3 7-7 7" />
-      <path d="M12 12l4 4" /><path d="M8 8l2 2" />
-    </svg>
-  ),
-  reverb: (color) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="4" width="10" height="10" strokeOpacity="0.4" />
-      <rect x="7" y="7" width="10" height="10" strokeOpacity="0.7" />
-      <rect x="10" y="10" width="10" height="10" />
-    </svg>
-  )
-};
-
-function ToneChain({ chain }) {
-  const blocks = [
-    { key: 'noise_gate', label: 'GATE', color: '#a3e635' },
-    { key: 'efx',        label: 'EFX',  color: '#fbbf24' },
-    { key: 'amp',        label: 'AMP',  color: '#f87171' },
-    { key: 'cab',        label: 'IR',   color: '#22d3ee' },
-    { key: 'mod',        label: 'MOD',  color: '#c084fc' },
-    { key: 'delay',      label: 'DLY',  color: '#60a5fa' },
-    { key: 'reverb',     label: 'RVB',  color: '#fb923c' },
-  ];
-
-  return (
-    <div className="tone-chain-container">
-      <div className="signal-cable" />
-      {blocks.map((b) => {
-        const item = chain[b.key];
-        const isEnabled = item && item.enabled && item.type !== 'None';
-        const color = isEnabled ? b.color : '#4b5563';
-        
-        return (
-          <div key={b.key} className={`chain-block ${isEnabled ? 'active' : 'bypassed'}`} style={{ '--glow-color': b.color }}>
-            <div className="icon-box">
-              {ChainIcons[b.key](color)}
-            </div>
-            <div className="block-label">{b.label}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function Knob({ label, value, max = 100 }) {
-  // ── Animation Logic ────────────────────────────────────────────────────────
-  // To make the knobs 'spin' into place, we start at 0 and transition to the target.
-  const [displayValue, setDisplayValue] = useState(0); 
-  const numVal = Number(value) || 0;
-  
   useEffect(() => {
-    // A small delay ensures the component is mounted before the transition starts
-    const timer = setTimeout(() => setDisplayValue(numVal), 50);
-    return () => clearTimeout(timer);
-  }, [numVal]);
+    let cancelled = false
+    const check = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/', { signal: AbortSignal.timeout(3000) })
+        if (!cancelled) setStatus(res.ok ? 'online' : 'offline')
+      } catch {
+        if (!cancelled) setStatus('offline')
+      }
+    }
+    check()
+    const interval = setInterval(check, 15000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
 
-  const normalized = Math.min(Math.max(displayValue, 0), max);
-  const angle = -135 + (normalized / max) * 270;
+  const dot = { checking: '#888', online: '#4ade80', offline: '#f87171' }[status]
+  const label = { checking: 'Connecting\u2026', online: 'Backend online', offline: 'Backend offline' }[status]
+
+  return (
+    <div className="backend-status">
+      <span className="status-dot" style={{ background: dot, boxShadow: status === 'online' ? `0 0 6px ${dot}` : 'none' }} />
+      <span className="status-label">{label}</span>
+    </div>
+  )
+}
+
+// ── Knob component ────────────────────────────────────────────────────────────
+function Knob({ label, value, min = 0, max = 100, accent = '#f5a623' }) {
+  const [display, setDisplay] = useState(0)
+  const num = Number(value) || 0
+  useEffect(() => {
+    const t = setTimeout(() => setDisplay(num), 60)
+    return () => clearTimeout(t)
+  }, [num])
+  const norm  = Math.min(Math.max(display, min), max)
+  const angle = -135 + ((norm - min) / (max - min)) * 270
+  const isOption = typeof value === 'string' && isNaN(Number(value))
 
   return (
     <div className="knob-wrap">
-      <div className="knob">
-        {/* The 'angle' variable controls the rotation of the white indicator dot */}
-        <div className="knob-dot" style={{ '--angle': `${angle}deg` }} />
-      </div>
-      {/* Show the target value as an integer */}
-      <div className="knob-value">{typeof value === 'number' ? value.toFixed(0) : value}</div>
+      {isOption ? (
+        <div className="knob-toggle" style={{ '--ka': accent }}>
+          <span className="knob-toggle-val">{value}</span>
+        </div>
+      ) : (
+        <div className="knob" style={{ '--ka': accent }}>
+          <div className="knob-ring" />
+          <div className="knob-face">
+            <div className="knob-dot" style={{ transform: `rotate(${angle}deg)` }} />
+          </div>
+        </div>
+      )}
+      <div className="knob-value">{isOption ? '' : (typeof value === 'number' ? value.toFixed(0) : value)}</div>
       <div className="knob-label">{label}</div>
     </div>
-  );
+  )
 }
 
-function ResultDashboard({ chain, features, debug }) {
-  const styleKey = (chain.style ?? 'clean').toLowerCase().replace(' ', '_')
-  const meta     = STYLE_META[styleKey] ?? STYLE_META.clean
-  const charKey  = chain.tone_character ?? 'balanced'
-  const blocks   = getChainBlocks(chain)
-
-  // Filter out amp knobs for the EQ section
-  const ampSettings = chain.amp?.settings || [];
+// ── Detail Panel — shown when a chain slot is clicked ────────────────────────
+function DetailPanel({ slotKey, data, accentColor, onClose }) {
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--accent', meta.color);
-    return () => document.documentElement.style.setProperty('--accent', '#f5a623');
-  }, [meta.color]);
+    const t = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(t)
+  }, [slotKey])
+
+  if (!data) return null
+
+  const settings = data.settings || []
+  const typeName = data.type && data.type !== 'None' ? data.type : null
+  const isCab = slotKey === 'cab'
+
+  return (
+    <div
+      className={`detail-panel ${visible ? 'panel-visible' : 'panel-hidden'}`}
+      style={{ '--panel-accent': accentColor }}
+    >
+      <div className="detail-header">
+        <div className="detail-icon-wrap">
+          {SLOT_ICONS[slotKey](accentColor)}
+        </div>
+        <div className="detail-title-group">
+          <span className="detail-slot-label">{CHAIN_SLOTS.find(s => s.key === slotKey)?.label}</span>
+          <h3 className="detail-type-name">{typeName || (isCab ? data.type : 'Off')}</h3>
+        </div>
+        <button className="detail-close" onClick={onClose} aria-label="Close panel">
+          <svg viewBox="0 0 18 18" width="16" height="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="4" y1="4" x2="14" y2="14"/><line x1="14" y1="4" x2="4" y2="14"/>
+          </svg>
+        </button>
+      </div>
+
+      <div className="detail-knobs">
+        {settings.map((s, i) => (
+          <Knob
+            key={i}
+            label={s.label}
+            value={s.value}
+            min={s.min}
+            max={s.max}
+            accent={accentColor}
+          />
+        ))}
+        {settings.length === 0 && (
+          <p className="detail-empty">No parameters</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Build chain data from API result ─────────────────────────────────────────
+function buildChainData(chain) {
+  const result = {}
+  for (const slot of CHAIN_SLOTS) {
+    const raw = chain[slot.key]
+    if (!raw) { result[slot.key] = null; continue }
+    const enabled = raw.enabled !== false && raw.type !== 'None'
+    const settings = (raw.settings || [])
+      .filter(s => s.label.toLowerCase() !== 'model')
+      .map(s => ({
+        label: s.label,
+        value: typeof s.value === 'number' ? s.value : s.value,
+        min: s.min,
+        max: s.max
+      }))
+    // Model name is shown in the detail panel header — no need to duplicate as a knob tile
+    result[slot.key] = { type: raw.type || null, enabled, settings }
+  }
+  return result
+}
+
+// ── Signal Chain Bar ──────────────────────────────────────────────────────────
+function SignalChain({ chain, activeSlot, onSlotClick }) {
+  return (
+    <div className="signal-chain-bar">
+      <div className="chain-cable-track" />
+      {CHAIN_SLOTS.map((slot, idx) => {
+        const data    = chain[slot.key]
+        const enabled = data?.enabled
+        const active  = activeSlot === slot.key
+        const color   = enabled ? slot.color : '#4b5563'
+
+        return (
+          <React.Fragment key={slot.key}>
+            {idx > 0 && <div className={`chain-cable-seg ${enabled ? 'cable-hot' : ''}`} />}
+            <button
+              className={`chain-node ${enabled ? 'node-on' : 'node-off'} ${active ? 'node-active' : ''}`}
+              style={{ '--nc': slot.color }}
+              onClick={() => onSlotClick(slot.key)}
+              aria-pressed={active}
+              title={slot.label}
+            >
+              <div className="node-icon">{SLOT_ICONS[slot.key](color)}</div>
+              <span className="node-label">{slot.label}</span>
+              {enabled && <div className="node-led" />}
+            </button>
+          </React.Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Debug Strip ──────────────────────────────────────────────────────────────
+function DebugStrip({ debug }) {
+  const pills = [
+    { label: 'ZCR',      val: debug?.zcr       ? `${(debug.zcr * 100).toFixed(1)}%`   : '\u2014' },
+    { label: 'Flatness', val: debug?.flatness  ? (debug.flatness * 100).toFixed(2)     : '\u2014' },
+    { label: 'RMS',      val: debug?.rms       ? `${(debug.rms * 100).toFixed(1)}%`   : '\u2014' },
+    { label: 'Centroid', val: debug?.centroid  ? `${Math.round(debug.centroid)} Hz`    : '\u2014' },
+    { label: 'Flux',     val: debug?.flux      ? (debug.flux).toFixed(3)               : '\u2014' },
+    { label: 'Gain',     val: debug?.gain_score !== undefined ? debug.gain_score        : '\u2014' },
+  ]
+
+  return (
+    <div className="debug-strip">
+      {pills.map(({ label, val }) => (
+        <div key={label} className="debug-pill">
+          <span className="pill-label">{label}</span>
+          <span className="pill-val">{val}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Result Dashboard ──────────────────────────────────────────────────────────
+function ResultDashboard({ chain, features, debug }) {
+  const [activeSlot, setActiveSlot] = useState(null)
+  const [prevSlot, setPrevSlot]     = useState(null)
+
+  const styleKey = (chain.style ?? 'clean').toLowerCase().replace(/ /g, '_')
+  const theme    = GENRE_THEMES[styleKey] ?? GENRE_THEMES.rock
+  const chainData = buildChainData(chain)
+
+  // Apply genre theme as CSS variables
+  useEffect(() => {
+    const t = GENRE_THEMES[styleKey] ?? GENRE_THEMES.rock
+    const root = document.documentElement
+    root.style.setProperty('--accent',       t.accent)
+    root.style.setProperty('--accent-dim',   t.accentDim)
+    root.style.setProperty('--glow',         t.glow)
+    root.style.setProperty('--bg-tint',      t.bgTint)
+    root.style.setProperty('--grid-color',   t.gridColor)
+    root.style.setProperty('--panel-border', t.panelBorder)
+    return () => {
+      root.style.setProperty('--accent',       '#fbbf24')
+      root.style.setProperty('--accent-dim',   '#f5a623')
+      root.style.setProperty('--glow',         'rgba(251,191,36,0.14)')
+      root.style.setProperty('--bg-tint',      '#060608')
+      root.style.setProperty('--grid-color',   '#0d0d12')
+      root.style.setProperty('--panel-border', 'rgba(255,255,255,0.08)')
+    }
+  }, [styleKey])
+
+  // Default to amp on first load
+  useEffect(() => {
+    setActiveSlot('amp')
+  }, [chain])
+
+  const handleSlotClick = (key) => {
+    if (key === activeSlot) {
+      setActiveSlot(null)
+    } else {
+      setPrevSlot(activeSlot)
+      setActiveSlot(key)
+    }
+  }
+
+  const activeSlotMeta = CHAIN_SLOTS.find(s => s.key === activeSlot)
+  const activeSlotData = activeSlot ? chainData[activeSlot] : null
 
   return (
     <div className="dashboard-canvas">
       <div className="panel">
-        
-        {/* Style + Tone Header */}
+
+        {/* Header */}
         <header className="dashboard-header">
-          <div className="tone-title-group">
-            <div className="tone-char-badge">{chain.style ?? styleKey.toUpperCase()}</div>
-            <h2 className="tone-name">{chain.amp?.type ?? 'Unknown Amp'}</h2>
-            <p className="tone-desc">{meta.desc} &middot; <strong style={{color: meta.color}}>{charKey}</strong></p>
+          <div className="header-left">
+            <span className="genre-badge">{theme.label}</span>
+            <h2 className="amp-name">{chain.amp?.type ?? 'Unknown Amp'}</h2>
+            <p className="amp-desc">{theme.desc} &middot; <em>{chain.tone_character ?? 'balanced'}</em></p>
+          </div>
+          <div className="header-right">
+            <span className="meta-badge">{chain.play_style ?? 'rhythm'}</span>
+            <span className="meta-badge">{chain.tone_character ?? 'balanced'}</span>
           </div>
         </header>
-        {/* Tone Chain Visualizer */}
-        <ToneChain chain={chain} />
 
-        {/* EQ Section — no floating label, section is self-evident */}
-        <div className="eq-section">
-          <div className="knobs-grid">
-            {ampSettings.map((s, idx) => (
-              <Knob key={idx} label={s.label} value={s.value} />
-            ))}
-          </div>
-        </div>
+        {/* Signal Chain */}
+        <SignalChain chain={chainData} activeSlot={activeSlot} onSlotClick={handleSlotClick} />
 
-        {/* Signal Chain Details: Only show active blocks — no floating label */}
-        <div className="chain-grid">
-          {blocks.filter(b => b.enabled).map((block) => (
-            <div key={block.key} className="chain-item">
-              <ChainBlock {...block} />
+        {/* Detail Panel — animated swap */}
+        <section className="detail-section">
+          {activeSlot && activeSlotData ? (
+            <DetailPanel
+              key={activeSlot}
+              slotKey={activeSlot}
+              data={activeSlotData}
+              accentColor={activeSlotMeta?.color ?? '#f5a623'}
+              onClose={() => setActiveSlot(null)}
+            />
+          ) : (
+            <div className="detail-placeholder">
+              <span>Select a component above to view settings</span>
             </div>
-          ))}
-        </div>
+          )}
+        </section>
 
-        {/* Debug Features — compact single row at the bottom */}
-        <div className="features-row">
-          <span className="feature-pill">ZCR <strong>{debug?.zcr ? (debug.zcr * 100).toFixed(1) : 0}%</strong></span>
-          <span className="feature-pill">Flatness <strong>{debug?.flatness ? (debug.flatness * 100).toFixed(1) : 0}%</strong></span>
-          <span className="feature-pill">RMS <strong>{debug?.rms ? (debug.rms * 100).toFixed(1) : 0}%</strong></span>
-          <span className="feature-pill">Centroid <strong>{Math.round(debug?.centroid || 0)} Hz</strong></span>
-          <span className="feature-pill">Gain Score <strong>{debug?.gain_score || 0}</strong></span>
-        </div>
+        {/* Debug Strip */}
+        <DebugStrip debug={debug} />
 
       </div>
     </div>
@@ -241,40 +425,30 @@ function ResultDashboard({ chain, features, debug }) {
 
 // ── Main App Shell ────────────────────────────────────────────────────────────
 export default function App() {
-  const [file, setFile] = useState(null)
-  const [dragging, setDrag] = useState(false)
+  const [file, setFile]       = useState(null)
+  const [dragging, setDrag]   = useState(false)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
+  const [result, setResult]   = useState(null)
+  const [error, setError]     = useState(null)
+  const fileInputRef          = useRef(null)
 
   const onDrop = useCallback((e) => {
-    e.preventDefault()
-    setDrag(false)
-    if (e.dataTransfer.files?.[0]) {
-      selectFile(e.dataTransfer.files[0])
-    }
+    e.preventDefault(); setDrag(false)
+    if (e.dataTransfer.files?.[0]) selectFile(e.dataTransfer.files[0])
   }, [])
 
-  const selectFile = (f) => {
-    setFile(f)
-    setResult(null)
-    setError(null)
-  }
+  const selectFile = (f) => { setFile(f); setResult(null); setError(null) }
 
   const analyze = async () => {
     if (!file) return
-    setLoading(true)
-    setError(null)
-    
-    const formData = new FormData()
-    formData.append('file', file)
-
+    setLoading(true); setError(null)
+    const fd = new FormData()
+    fd.append('file', file)
     try {
-      const res = await axios.post('http://localhost:8000/analyze', formData)
+      const res = await axios.post('http://localhost:8000/analyze', fd)
       setResult(res.data)
     } catch (err) {
-      console.error(err)
-      setError(err.response?.data?.error || 'Analysis failed. Make sure backend is running.')
+      setError(err.response?.data?.detail || 'Analysis failed. Make sure backend is running.')
     } finally {
       setLoading(false)
     }
@@ -282,63 +456,48 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* ── Sidebar Control Panel ── */}
       <aside className="sidebar">
         <header className="sidebar-header">
           <h1 className="brand">AmpCraft</h1>
-          <p className="tagline">AI-powered guitar tone analyzer</p>
+          <p className="tagline">Tone matcher for NUX Mighty Lite BT MK II</p>
         </header>
+
+        <BackendStatus />
 
         <section className="upload-section">
           <div
-            id="drop-zone"
             className={`drop-zone ${dragging ? 'dragover' : ''} ${file ? 'has-file' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
             onDragLeave={() => setDrag(false)}
             onDrop={onDrop}
-            onClick={() => document.getElementById('file-input').click()}
+            onClick={() => fileInputRef.current?.click()}
           >
             {file
               ? <p className="dz-filename">{file.name}</p>
-              : <>
-                  <p className="dz-main">Drag &amp; drop your audio</p>
-                  <p className="dz-sub">or <span>click to browse</span></p>
-                </>
+              : <><p className="dz-main">Drag &amp; drop your audio</p><p className="dz-sub">or <span>click to browse</span></p></>
             }
           </div>
-
-          <input
-            id="file-input"
-            type="file"
-            accept="audio/*"
-            style={{ display: 'none' }}
-            onChange={(e) => selectFile(e.target.files[0])}
-          />
-
+          <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }}
+            onChange={(e) => selectFile(e.target.files[0])} />
           {error && <p className="error-msg">{error}</p>}
         </section>
 
-        <button
-          id="analyze-btn"
-          className="btn-analyze"
-          disabled={!file || loading}
-          onClick={analyze}
-        >
+        <button className="btn-analyze" disabled={!file || loading} onClick={analyze}>
           {loading ? <span className="spinner" /> : 'Analyze Tone'}
         </button>
       </aside>
 
-      {/* ── Main Dashboard Workspace ── */}
       <main className="main-content">
-        {result ? (
-          <ResultDashboard
-            chain={result.chain}
-            features={result.features}
-            debug={result.debug}
-          />
+        {loading ? (
+          <div className="loading-overlay">
+            <div className="loading-spinner" />
+            <p className="loading-text">Analyzing tone&hellip;</p>
+          </div>
+        ) : result ? (
+          <ResultDashboard chain={result.chain} features={result.features} debug={result.debug} />
         ) : (
           <div className="empty-state">
-            Please upload a guitar track to generate a processing chain.
+            Upload a guitar track or stem to generate a NUX Mighty Lite BT MK II patch.
           </div>
         )}
       </main>

@@ -43,12 +43,12 @@ def validate_gear():
 
     # 🚨 FAIL FAST
     if errors:
-        print("\n❌ GEAR VALIDATION FAILED:\n")
+        print("\n[!] GEAR VALIDATION FAILED:\n")
         for e in errors:
             print(" -", e)
         raise ValueError("Invalid gear configuration. Fix gear.json before running.")
 
-    print("✅ Gear validation passed.")
+    print("[OK] Gear validation passed.")
 
 AMP_GROUPS = {
     "jazz":      ["jazz_clean", "stageman"],
@@ -215,7 +215,7 @@ def _map_feature_to_knob(knob: str, features: dict, tone_class: str, defaults: d
     """
     centroid = features.get("centroid", 2500)
     zcr      = features.get("zcr", 0.05)
-    rms      = features.get("rms", 0.1)
+    rms      = features.get("rms_norm", features.get("rms", 0.1) / 0.2)
     rolloff  = features.get("rolloff", 5000)
 
     k = knob.lower()
@@ -275,7 +275,7 @@ def _map_feature_to_knob(knob: str, features: dict, tone_class: str, defaults: d
     # 7. MASTER / VOLUME / OUTPUT — based on RMS energy (all genres)
     # ─────────────────────────────────────────────────────────────────────
     if any(x in k for x in ["master", "volume", "output", "level"]):
-        return _clamp(30 + rms * 200, 30, 85)
+        return _clamp(30 + rms * 100, 30, 85)
 
     # ─────────────────────────────────────────────────────────────────────
     # 8. NOISE GATE: Sens = tighter gate for dirtier/louder playing
@@ -283,7 +283,7 @@ def _map_feature_to_knob(knob: str, features: dict, tone_class: str, defaults: d
     # ─────────────────────────────────────────────────────────────────────
     if "sens" in k:
         # Louder + dirtier playing = tighter gate = higher Sens
-        return _clamp(20 + rms * 200 + zcr * 100, 20, 80)
+        return _clamp(20 + rms * 100 + zcr * 100, 20, 80)
 
     # ─────────────────────────────────────────────────────────────────────
     # 9. DECAY (gate + reverb) — all on 0-100
@@ -292,7 +292,7 @@ def _map_feature_to_knob(knob: str, features: dict, tone_class: str, defaults: d
         # Gate decay: metal/hg wants fast (high value = short gate tail)
         # Reverb decay: ambient styles want longer decay
         if tone_class in ["metal", "high_gain"]:
-            return _clamp(75 - rms * 50, 50, 80)
+            return _clamp(75 - rms * 30, 50, 80)
         if tone_class in ["jazz", "clean"]:
             return _clamp(30 + rms * 80, 20, 60)
         return _clamp(int(defaults.get(knob, 50)), 0, 100)
@@ -469,10 +469,9 @@ def generate_chain(intent: dict, features: dict, play_style: str) -> dict:
             "type":      get_name("cab", cab_id),
             "enabled":   True,
             "settings":  [
-                {"label": "Model",    "value": get_name("cab", cab_id)},
-                {"label": "Low Cut",  "value": _clamp(centroid / 60, 0, 80)},
-                {"label": "High Cut", "value": _clamp(features.get("rolloff", 5000) / 100, 30, 100)},
-                {"label": "Level",    "value": _clamp(30 + rms * 200, 30, 85)},
+                {"label": "Low Cut (Hz)",  "value": int(_clamp(20 + ((centroid - 1000) / 3000.0) * 280, 20, 300)), "min": 20, "max": 300},
+                {"label": "High Cut (Hz)", "value": int(_clamp(5000 + ((features.get("rolloff", 5000) - 3000) / 7000.0) * 15000, 5000, 20000)), "min": 5000, "max": 20000},
+                {"label": "Level (dB)",    "value": 0, "min": -12, "max": 12},
             ]
         },
         "mod": {
@@ -555,8 +554,9 @@ def detect_palm_mute(features: dict) -> bool:
     zcr = features.get("zcr", 0.05)
     rms = features.get("rms", 0.1)
 
-    # Tight, percussive, low sustain
-    if zcr > 0.13 and rms < 0.15:
+    # Tight, percussive, low sustain — raised threshold to avoid false positives
+    # on normal rock/blues playing (was 0.13/0.15, too aggressive)
+    if zcr > 0.17 and rms < 0.12:
         return True
 
     return False
@@ -577,35 +577,49 @@ def generate_chain_basic(intent: dict, features: dict) -> dict:
     score = _gain_score(features)
     palm_muted = detect_palm_mute(features)
 
-    # 🔥 DOMINANT DISTORTION RULE
-    if zcr > 0.14:
+    # 🔥 GAIN SCORE → TONE CLASS
+    # Use gain_score as primary signal. Only override to metal/high_gain
+    # when BOTH zcr AND flatness are elevated (true heavy distortion).
+    # Previously zcr > 0.14 alone triggered metal — far too aggressive.
+    base_class = _gain_to_class(score)
+    if zcr > 0.17 and flatness > 0.06:
         tone_class = "metal"
-    elif zcr > 0.11:
+    elif zcr > 0.15 and flatness > 0.04:
         tone_class = "high_gain"
     else:
-        tone_class = _gain_to_class(score)
+        tone_class = base_class
+
+    # Flux refinement: in the clean/jazz zone, use flux to separate them
+    # flux (0.0–1.0): high = lots of transient attack = more aggressive style
+    flux = features.get("flux", 0.1)
+    if tone_class in ("clean", "jazz"):
+        if flux >= 0.18:
+            tone_class = "blues"   # clean-ish but lots of picking attack
+        elif flux >= 0.08:
+            tone_class = "clean"
+        else:
+            tone_class = "jazz"
 
     play_style = detect_lead_simple(features)
     lead_type = detect_lead_type(features)
 
     # DEBUG LOGGING (BACKEND)
-    print("DEBUG → zcr:", zcr)
-    print("DEBUG → rms:", features.get("rms"))
-    print("DEBUG → palm_muted:", palm_muted)
-    print("DEBUG → tone_class:", tone_class)
+    print("DEBUG -> zcr:", zcr)
+    print("DEBUG -> rms:", features.get("rms"))
+    print("DEBUG -> palm_muted:", palm_muted)
+    print("DEBUG -> tone_class:", tone_class)
 
-    print(f"[chain_basic] gain_score={score:.4f} → tone_class={tone_class} | style={play_style} | mute={palm_muted} | type={lead_type}")
+    print(f"[chain_basic] gain_score={score:.4f} -> tone_class={tone_class} | style={play_style} | mute={palm_muted} | type={lead_type}")
 
-    # ── Amp: first amp in the group for this class ────────────────────────
-    amps = AMP_GROUPS.get(tone_class, AMP_GROUPS["clean"])
-    amp_id = amps[0]
+    # ── Amp: feature-driven selection within the group ────────────────────
+    amp_id, _ = pick_amp(tone_class, features)
 
     # ── Cab: strict amp→cab mapping ───────────────────────────────────────
     cab_id = pick_cab_for_amp(amp_id)
 
-    # ── EFX: pick from group ──────────────────────────────────────────────
-    efx_list = EFX_GROUPS.get(tone_class, EFX_GROUPS["clean"])
-    efx_id = efx_list[0]
+    # ── EFX: feature-driven selection within the group ────────────────────
+    centroid = features.get("centroid", 2500)
+    efx_id = pick_efx(tone_class, centroid)
 
     # ── Delay / Reverb: style-aware rules ──────────────────────────────
 
@@ -656,19 +670,25 @@ def generate_chain_basic(intent: dict, features: dict) -> dict:
     # ── EQ character ──────────────────────────────────────────────────────
     centroid = features.get("centroid", 2500)
     rolloff  = features.get("rolloff", 5000)
-    rms      = features.get("rms", 0.1)
+    rms      = features.get("rms_norm", features.get("rms", 0.1) / 0.2)
     char, _, _, _ = tone_eq(centroid)
 
-    # ── Resolve real-world Cab units ──────────────────────────────────────
-    low_cut  = int(min(300, max(20, centroid * 0.08)))
-    high_cut = int(min(20000, max(2000, rolloff * 1.5)))
-    level_db = 0.0
+    # ── Mod: pick from group (was hardcoded off — now active) ───────────────
+    mod_id = pick_mod(tone_class, zcr)
 
     # ── Resolve display names ─────────────────────────────────────────────
     def get_name(cat, gid):
         if gid == "None": return "None"
         if cat == "cab": return gid
         return GEAR.get(cat, {}).get(gid, {}).get("name", format_name(gid))
+
+    # ── Cab: NUX Mighty Lite uses named IR slots on a 0-100 knob scale
+    #    Low Cut / High Cut are 0-100 knob positions (not Hz values)
+    #    Map centroid → low_cut (brighter source = higher low cut)
+    #    Map rolloff  → high_cut (darker source = lower high cut)
+    low_cut_knob  = int(_clamp(20 + ((centroid - 1000) / 3000.0) * 280, 20, 300))
+    high_cut_knob = int(_clamp(5000 + ((features.get("rolloff", 5000) - 3000) / 7000.0) * 15000, 5000, 20000))
+    level_knob    = round(_clamp(-6 + rms * 15, -12, 12), 1)
 
     # ── Build chain ───────────────────────────────────────────────────────
     chain = {
@@ -697,16 +717,15 @@ def generate_chain_basic(intent: dict, features: dict) -> dict:
             "type":     get_name("cab", cab_id),
             "enabled":  True,
             "settings": [
-                {"label": "Model",         "value": get_name("cab", cab_id)},
-                {"label": "Low Cut (Hz)",  "value": low_cut},
-                {"label": "High Cut (Hz)", "value": high_cut},
-                {"label": "Level (dB)",    "value": level_db}
+                {"label": "Low Cut (Hz)",  "value": low_cut_knob, "min": 20, "max": 300},
+                {"label": "High Cut (Hz)", "value": high_cut_knob, "min": 5000, "max": 20000},
+                {"label": "Level (dB)",    "value": 0, "min": -12, "max": 12},
             ],
         },
         "mod": {
-            "type":     "None",
-            "enabled":  False,
-            "settings": [],
+            "type":     get_name("mod", mod_id),
+            "enabled":  mod_id != "None",
+            "settings": get_gear_settings("mod", mod_id, features, tone_class) if mod_id != "None" else [],
         },
         "delay": {
             "type":     get_name("delay", delay_id),
@@ -719,10 +738,12 @@ def generate_chain_basic(intent: dict, features: dict) -> dict:
             "settings": get_gear_settings("reverb", reverb_id, features, tone_class) if reverb_id != "None" else [],
         },
         "debug_features": {
-            "zcr": features.get("zcr"),
-            "flatness": features.get("flatness"),
-            "rms": features.get("rms"),
-            "centroid": features.get("centroid"),
+            "zcr":        features.get("zcr"),
+            "flatness":   features.get("flatness"),
+            "rms":        features.get("rms"),
+            "rms_norm":   features.get("rms_norm"),
+            "centroid":   features.get("centroid"),
+            "flux":       features.get("flux"),
             "gain_score": round(score, 4)
         }
     }

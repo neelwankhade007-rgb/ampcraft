@@ -423,6 +423,58 @@ function ResultDashboard({ chain, features, debug }) {
   )
 }
 
+// ── Stem Result Panel ─────────────────────────────────────────────────────────
+function StemResultPanel({ stemResult, onAnalyze, loading }) {
+  const BASE = 'http://localhost:8000'
+  const STEM_LABELS = {
+    guitar: { icon: '🎸', label: 'Guitar',  highlight: true },
+    bass:   { icon: '🎸', label: 'Bass',    highlight: false },
+    drums:  { icon: '🥁', label: 'Drums',   highlight: false },
+    vocals: { icon: '🎤', label: 'Vocals',  highlight: false },
+    other:  { icon: '🎵', label: 'Other',   highlight: false },
+    piano:  { icon: '🎹', label: 'Piano',   highlight: false },
+  }
+
+  return (
+    <div className="stem-result-panel">
+      <p className="stem-result-title">Stems ready</p>
+      <p className="stem-result-sub">{stemResult.original_filename}</p>
+
+      <div className="stem-list">
+        {Object.entries(stemResult.stems).map(([name, url]) => {
+          const meta = STEM_LABELS[name] ?? { icon: '🎵', label: name, highlight: false }
+          return (
+            <div
+              key={name}
+              className={`stem-row ${meta.highlight ? 'stem-row-highlight' : ''}`}
+            >
+              <span className="stem-row-icon">{meta.icon}</span>
+              <span className="stem-row-label">{meta.label}</span>
+              <a
+                href={`${BASE}${url}`}
+                download={`${name}.wav`}
+                className="stem-download-btn"
+                target="_blank"
+                rel="noreferrer"
+              >
+                ↓
+              </a>
+            </div>
+          )
+        })}
+      </div>
+
+      <button
+        className="btn-analyze btn-analyze-stem"
+        disabled={loading}
+        onClick={() => onAnalyze(stemResult.job_id)}
+      >
+        {loading ? <span className="spinner spinner-dark" /> : '🎸 Analyze Guitar Tone'}
+      </button>
+    </div>
+  )
+}
+
 // ── Main App Shell ────────────────────────────────────────────────────────────
 export default function App() {
   const [file, setFile]       = useState(null)
@@ -431,6 +483,11 @@ export default function App() {
   const [result, setResult]   = useState(null)
   const [error, setError]     = useState(null)
   const fileInputRef          = useRef(null)
+
+  const [mode, setMode]             = useState(null)       // null | 'stem' | 'mix'
+  const [separating, setSeparating] = useState(false)
+  const [stemResult, setStemResult] = useState(null)       // response from /separate
+  const [sepError, setSepError]     = useState(null)
 
   const onDrop = useCallback((e) => {
     e.preventDefault(); setDrag(false)
@@ -454,46 +511,137 @@ export default function App() {
     }
   }
 
+  const separateSong = async () => {
+    if (!file) return
+    setSeparating(true)
+    setSepError(null)
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await axios.post('http://localhost:8000/separate', fd, {
+        timeout: 300000,   // 5 min timeout — separation can be slow on CPU
+      })
+      setStemResult(res.data)
+    } catch (err) {
+      setSepError(err.response?.data?.detail || 'Separation failed. Check backend.')
+    } finally {
+      setSeparating(false)
+    }
+  }
+
+  const analyzeFromStem = async (jobId) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await axios.post(
+        `http://localhost:8000/analyze-stem?job_id=${jobId}&stem=guitar`
+      )
+      setResult(res.data)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Analysis failed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="app-container">
       <aside className="sidebar">
         <header className="sidebar-header">
           <h1 className="brand">AmpCraft</h1>
-          <p className="tagline">Tone matcher for NUX Mighty Lite BT MK II</p>
+          <p className="tagline">Designed for NUX Mighty Lite BT MK II</p>
         </header>
 
         <BackendStatus />
 
-        <section className="upload-section">
-          <div
-            className={`drop-zone ${dragging ? 'dragover' : ''} ${file ? 'has-file' : ''}`}
-            onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
-            onDragLeave={() => setDrag(false)}
-            onDrop={onDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {file
-              ? <p className="dz-filename">{file.name}</p>
-              : <><p className="dz-main">Drag &amp; drop your audio</p><p className="dz-sub">or <span>click to browse</span></p></>
-            }
+        {!mode && (
+          <div className="mode-picker">
+            <p className="mode-prompt">What are you uploading?</p>
+            <button className="mode-btn mode-btn-stem" onClick={() => setMode('stem')}>
+              <span className="mode-icon">🎸</span>
+              <span className="mode-label">Guitar stem</span>
+              <span className="mode-sub">Already isolated — analyze directly</span>
+            </button>
+            <button className="mode-btn mode-btn-mix" onClick={() => setMode('mix')}>
+              <span className="mode-icon">🎵</span>
+              <span className="mode-label">Full song / mix</span>
+              <span className="mode-sub">Separate guitar stem first</span>
+            </button>
           </div>
-          <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }}
-            onChange={(e) => selectFile(e.target.files[0])} />
-          {error && <p className="error-msg">{error}</p>}
-        </section>
+        )}
 
-        <button className="btn-analyze" disabled={!file || loading} onClick={analyze}>
-          {loading ? <span className="spinner" /> : 'Analyze Tone'}
-        </button>
+        {mode && (
+          <div className="mode-selected-bar">
+            <span className="mode-chip">{mode === 'stem' ? '🎸 Guitar stem' : '🎵 Full mix'}</span>
+            <button className="mode-change" onClick={() => { setMode(null); setFile(null); setStemResult(null) }}>
+              Change
+            </button>
+          </div>
+        )}
+
+        {mode && (
+          <section className="upload-section">
+            <div
+              className={`drop-zone ${dragging ? 'dragover' : ''} ${file ? 'has-file' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={onDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {file
+                ? <p className="dz-filename">{file.name}</p>
+                : <><p className="dz-main">Drag &amp; drop your audio</p><p className="dz-sub">or <span>click to browse</span></p></>
+              }
+              {mode === 'stem' && (
+                <p className="stem-notice">
+                  ⚠️ Guitar stem only — no drums, bass, or vocals
+                </p>
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }}
+              onChange={(e) => selectFile(e.target.files[0])} />
+            {error && <p className="error-msg">{error}</p>}
+            {sepError && <p className="error-msg">{sepError}</p>}
+          </section>
+        )}
+
+        {mode === 'stem' && (
+          <button className="btn-analyze" disabled={!file || loading} onClick={analyze}>
+            {loading ? <span className="spinner" /> : 'Analyze Tone'}
+          </button>
+        )}
+
+        {mode === 'mix' && !stemResult && (
+          <button className="btn-separate" disabled={!file || separating} onClick={separateSong}>
+            {separating
+              ? <><span className="spinner spinner-dark" /><span>Separating…</span></>
+              : 'Separate Stems'}
+          </button>
+        )}
+
+        {mode === 'mix' && stemResult && (
+          <StemResultPanel
+            stemResult={stemResult}
+            onAnalyze={analyzeFromStem}
+            loading={loading}
+          />
+        )}
       </aside>
 
       <main className="main-content">
-        {loading ? (
+        {separating && !result && (
+          <div className="loading-overlay">
+            <div className="loading-spinner" />
+            <p className="loading-text">Separating stems…</p>
+            <p className="loading-subtext">This takes 1–3 min on CPU · 10–30s on GPU</p>
+          </div>
+        )}
+        {!separating && loading ? (
           <div className="loading-overlay">
             <div className="loading-spinner" />
             <p className="loading-text">Analyzing tone&hellip;</p>
           </div>
-        ) : result ? (
+        ) : !separating && result ? (
           <ResultDashboard chain={result.chain} features={result.features} debug={result.debug} />
         ) : (
           <div className="empty-state">

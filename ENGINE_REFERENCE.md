@@ -22,7 +22,12 @@
 - Metal uses 4×12 only (RECT 412, DIE412, SLO412) ✅
 - Metal EFX = T-Screamer boost only (no distortion stacking) ✅
 
-### 4. API / Pipeline (`main.py`)
+### 4. Stem Separation (`stem_separator.py`)
+- Powered by Meta's Demucs AI model (`htdemucs_6s`).
+- Handles complex input conversions dynamically to cleanly isolate the guitar stem from a full song.
+- Integrates seamlessly into the pipeline, giving users immediate access to isolated stems before tone analysis.
+
+### 5. API / Pipeline (`main.py`)
 ```
 upload → extract_named() → classify_tone() → generate_chain() → JSON → UI
 ```

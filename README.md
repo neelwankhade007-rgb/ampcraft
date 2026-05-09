@@ -7,7 +7,9 @@
 ## How It Works
 
 ```
-audio file
+audio file (guitar track or full song mix)
+   ↓
+[If full song] stem_separator.py → extracts isolated guitar stem via Demucs
    ↓
 feature_extractor.py  →  extracts ZCR, RMS, flatness, centroid, and rolloff
    ↓
@@ -28,6 +30,7 @@ No randomness. No complex ML latency. Just fast, deterministic heuristics that m
 ampcraft/
 ├── backend/
 │   ├── main.py               # FastAPI routes + response orchestration
+│   ├── stem_separator.py     # Demucs AI stem separation wrapper
 │   ├── tone_engine.py        # Core logic: Classification, style detection, and chain generation
 │   ├── feature_extractor.py  # Audio feature extraction via librosa
 │   ├── gear.json             # Gear database (amps, cabs, effects parameters)
@@ -65,10 +68,13 @@ npm run dev
 
 ## API
 
-| Method | Endpoint   | Description                       |
-|--------|------------|-----------------------------------|
-| GET    | `/`        | Health check                      |
-| POST   | `/analyze` | Upload audio → return tone preset |
+| Method | Endpoint        | Description                                       |
+|--------|-----------------|---------------------------------------------------|
+| GET    | `/`             | Health check                                      |
+| POST   | `/upload`       | Upload audio                                      |
+| POST   | `/analyze`      | Upload audio → return tone preset                 |
+| POST   | `/separate`     | Upload full mix → separate into 6 stems           |
+| POST   | `/analyze-stem` | Analyze an isolated stem from a previous sequence |
 
 ### `/analyze` response example
 

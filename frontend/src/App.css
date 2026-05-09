@@ -768,6 +768,207 @@ body {
   white-space: nowrap;
 }
 
+/* ── Mode Picker ── */
+.mode-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.mode-prompt {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: var(--surface2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s;
+  width: 100%;
+}
+.mode-btn:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface2));
+}
+.mode-icon { font-size: 1.1rem; }
+.mode-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.mode-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ── Mode selected chip ── */
+.mode-selected-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.mode-chip {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+}
+.mode-change {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+.mode-change:hover { color: var(--text); }
+
+/* ── Stem notice in drop zone ── */
+.stem-notice {
+  font-size: 0.72rem;
+  color: #fbbf24;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+/* ── Separate button ── */
+.btn-separate {
+  margin-top: auto;
+  width: 100%;
+  padding: 14px;
+  background: var(--surface2);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  flex-shrink: 0;
+}
+.btn-separate:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface2));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.btn-separate:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+/* spinner variant for dark button backgrounds */
+.spinner-dark {
+  border-color: rgba(255,255,255,0.15);
+  border-top-color: var(--accent);
+}
+
+/* ── Stem Result Panel ── */
+.stem-result-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.stem-result-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.stem-result-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: -6px;
+}
+.stem-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stem-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  transition: border-color 0.2s;
+}
+.stem-row-highlight {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface2));
+}
+.stem-row-icon { font-size: 0.9rem; flex-shrink: 0; }
+.stem-row-label {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: capitalize;
+}
+.stem-download-btn {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, border-color 0.15s;
+}
+.stem-download-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── analyze from stem button ── */
+.btn-analyze-stem {
+  background: var(--accent) !important;
+  color: #000 !important;
+  margin-top: 4px;
+}
+
+/* ── Loading subtext ── */
+.loading-subtext {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  margin-top: -8px;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════════════════════════════════════════════ */

@@ -222,3 +222,74 @@ def extract_hybrid(file_path: str) -> dict:
         "has_vibrato": has_vibrato,
     }
 
+
+def extract_named_region(file_path: str, start_sec: float, end_sec: float) -> dict:
+    """
+    Extract features from a specific time region of an audio file.
+    start_sec and end_sec are floats in seconds (e.g. 12.5, 47.0).
+    Minimum region length is 1.0 second.
+    Raises ValueError for invalid regions.
+    """
+    if start_sec < 0:
+        start_sec = 0.0
+    if end_sec <= start_sec:
+        raise ValueError(
+            f"end_sec ({end_sec:.2f}) must be greater than start_sec ({start_sec:.2f})"
+        )
+    if (end_sec - start_sec) < 1.0:
+        raise ValueError(
+            f"Region too short: {end_sec - start_sec:.2f}s. Minimum is 1.0s."
+        )
+
+    # Load ONLY the selected region to save RAM on long stems
+    y, sr = librosa.load(
+        file_path,
+        offset=start_sec,
+        duration=(end_sec - start_sec),
+        sr=None,   # preserve native sample rate
+    )
+
+    if len(y) == 0:
+        raise ValueError(
+            f"No audio found in region {start_sec:.2f}s - {end_sec:.2f}s"
+        )
+
+    # Identical pipeline to extract_named below this point
+    rms_frames = librosa.feature.rms(y=y)[0]
+    active_mask = rms_frames > (np.max(rms_frames) * 0.03)
+    if not np.any(active_mask):
+        active_mask = np.ones_like(rms_frames, dtype=bool)
+
+    centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
+    rolloff  = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
+    flatness = librosa.feature.spectral_flatness(y=y)[0]
+    zcr      = librosa.feature.zero_crossing_rate(y)[0]
+
+    S = np.abs(librosa.stft(y))
+    flux_frames = np.concatenate(
+        [[0], np.sqrt(np.sum(np.diff(S, axis=1) ** 2, axis=0))]
+    )
+    flux_max = np.max(flux_frames) + 1e-6
+    flux_norm_frames = flux_frames / flux_max
+    min_len = min(len(active_mask), len(flux_norm_frames))
+    active_trimmed = active_mask[:min_len]
+    flux_active = flux_norm_frames[:min_len][active_trimmed]
+    flux_val = float(np.mean(flux_active)) if len(flux_active) > 0 else 0.0
+
+    rms_val  = float(np.mean(rms_frames[active_mask]))
+    rms_norm = float(min(1.0, rms_val / 0.2))
+
+    return {
+        "centroid": int(np.mean(centroid[active_mask])),
+        "rolloff":  int(np.mean(rolloff[active_mask])),
+        "flatness": float(np.mean(flatness[active_mask])),
+        "zcr":      float(np.mean(zcr[active_mask])),
+        "rms":      rms_val,
+        "rms_norm": rms_norm,
+        "flux":     flux_val,
+        "region": {
+            "start":    round(start_sec, 2),
+            "end":      round(end_sec, 2),
+            "duration": round(end_sec - start_sec, 2),
+        },
+    }

@@ -475,6 +475,213 @@ function StemResultPanel({ stemResult, onAnalyze, loading }) {
   )
 }
 
+function RegionSelector({
+  duration,       // number: total stem seconds
+  startSec,       // number: current start (controlled from App state)
+  endSec,         // number: current end (controlled from App state)
+  onStartChange,  // (newVal: number) => void
+  onEndChange,    // (newVal: number) => void
+  onPlay,         // () => void
+  onStop,         // () => void
+  onAnalyze,      // () => void
+  playing,        // boolean: is audio currently playing
+  loading,        // boolean: is /analyze-stem-region in flight
+  stemUrl,        // string: full URL to guitar.wav, used to seed fake waveform
+  analyzeLabel = 'Analyze Selection',
+}) {
+  const trackRef = useRef(null)
+  const dragging = useRef(null)   // null | 'start' | 'end'
+
+  const total    = duration || 1
+  const startPct = (startSec / total) * 100
+  const endPct   = (endSec   / total) * 100
+  const selDur   = endSec - startSec
+
+  // ── Fake waveform bars — seeded from stemUrl for determinism ───────────────
+  // No canvas, no external lib. 80 SVG-like divs with heights generated from
+  // a simple sin-based hash of the URL string. Same URL → same bar pattern.
+  const bars = React.useMemo(() => {
+    let seed = 0
+    for (let i = 0; i < stemUrl.length; i++) seed += stemUrl.charCodeAt(i)
+    const rng = (n) => { const s = Math.sin(n) * 43758.5453; return s - Math.floor(s) }
+    return Array.from({ length: 80 }, (_, i) => Math.round(15 + rng(seed + i * 7.3) * 70))
+  }, [stemUrl])
+
+  // ── Drag logic ─────────────────────────────────────────────────────────────
+  const secFromEvent = (e) => {
+    const rect = trackRef.current.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    return Math.round(pct * total * 10) / 10   // snap to 0.1s precision
+  }
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!dragging.current || !trackRef.current) return
+      const sec = secFromEvent(e)
+      if (dragging.current === 'start') {
+        onStartChange(Math.max(0, Math.min(sec, endSec - 1.0)))
+      } else {
+        onEndChange(Math.min(total, Math.max(sec, startSec + 1.0)))
+      }
+    }
+    const onUp = () => { dragging.current = null }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup',   onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend',  onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup',   onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend',  onUp)
+    }
+  }, [startSec, endSec, total])
+
+  // ── Input change handler ───────────────────────────────────────────────────
+  const onInputChange = (which, raw) => {
+    const v = parseFloat(raw)
+    if (isNaN(v)) return
+    if (which === 'start') onStartChange(Math.max(0, Math.min(v, endSec - 1.0)))
+    else                   onEndChange(Math.min(total, Math.max(v, startSec + 1.0)))
+  }
+
+  // ── Time formatter: 75.3 → "1:15" ─────────────────────────────────────────
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+
+  return (
+    <div className="region-selector">
+
+      {/* Header */}
+      <div className="rs-header">
+        <span className="rs-title">Select Region</span>
+        <span className="rs-duration-badge">
+          {fmt(selDur)} selected · {fmt(total)} total
+        </span>
+      </div>
+
+      {/* Waveform Track */}
+      <div className="rs-track-wrap" ref={trackRef}>
+
+        {/* Fake waveform bars */}
+        <div className="rs-waveform">
+          {bars.map((h, i) => {
+            const pct = (i / bars.length) * 100
+            return (
+              <div
+                key={i}
+                className={`rs-bar ${pct >= startPct && pct <= endPct ? 'rs-bar-active' : ''}`}
+                style={{ height: `${h}%` }}
+              />
+            )
+          })}
+        </div>
+
+        {/* Shaded selection region */}
+        <div
+          className="rs-selection"
+          style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }}
+        />
+
+        {/* Start handle */}
+        <div
+          className="rs-handle rs-handle-start"
+          style={{ left: `${startPct}%` }}
+          onMouseDown={(e) => { e.preventDefault(); dragging.current = 'start' }}
+          onTouchStart={(e) => { e.preventDefault(); dragging.current = 'start' }}
+        >
+          <div className="rs-handle-grip" />
+          <span className="rs-handle-label rs-handle-label-left">{fmt(startSec)}</span>
+        </div>
+
+        {/* End handle */}
+        <div
+          className="rs-handle rs-handle-end"
+          style={{ left: `${endPct}%` }}
+          onMouseDown={(e) => { e.preventDefault(); dragging.current = 'end' }}
+          onTouchStart={(e) => { e.preventDefault(); dragging.current = 'end' }}
+        >
+          <div className="rs-handle-grip" />
+          <span className="rs-handle-label rs-handle-label-right">{fmt(endSec)}</span>
+        </div>
+
+      </div>
+
+      {/* Manual time inputs + action buttons */}
+      <div className="rs-controls">
+
+        <div className="rs-inputs">
+          <div className="rs-input-group">
+            <label className="rs-input-label">Start (sec)</label>
+            <input
+              type="number"
+              className="rs-input"
+              value={startSec}
+              min={0}
+              max={endSec - 1}
+              step={0.1}
+              onChange={(e) => onInputChange('start', e.target.value)}
+            />
+            <span className="rs-input-fmt">{fmt(startSec)}</span>
+          </div>
+
+          <div className="rs-sep">→</div>
+
+          <div className="rs-input-group">
+            <label className="rs-input-label">End (sec)</label>
+            <input
+              type="number"
+              className="rs-input"
+              value={endSec}
+              min={startSec + 1}
+              max={total}
+              step={0.1}
+              onChange={(e) => onInputChange('end', e.target.value)}
+            />
+            <span className="rs-input-fmt">{fmt(endSec)}</span>
+          </div>
+        </div>
+
+        <div className="rs-actions">
+
+          <button
+            className={`rs-btn-play ${playing ? 'rs-btn-stop' : ''}`}
+            onClick={playing ? onStop : onPlay}
+            disabled={!duration || selDur < 0.5}
+            title={playing ? 'Stop preview' : `Preview ${fmt(startSec)} – ${fmt(endSec)}`}
+          >
+            {playing
+              ? <svg viewBox="0 0 16 16" width="14" fill="currentColor"><rect x="2" y="2" width="5" height="12" rx="1"/><rect x="9" y="2" width="5" height="12" rx="1"/></svg>
+              : <svg viewBox="0 0 16 16" width="14" fill="currentColor"><path d="M3 2l11 6-11 6V2z"/></svg>
+            }
+            {playing ? 'Stop' : 'Preview'}
+          </button>
+
+          <button
+            className="rs-btn-analyze"
+            onClick={onAnalyze}
+            disabled={loading || selDur < 1.0}
+            title={selDur < 1.0 ? 'Select at least 1 second' : `${analyzeLabel} ${fmt(startSec)} – ${fmt(endSec)}`}
+          >
+            {loading
+              ? <span className="spinner spinner-dark" />
+              : analyzeLabel
+            }
+          </button>
+
+        </div>
+      </div>
+
+      {/* Validation warning */}
+      {selDur < 1.0 && (
+        <p className="rs-warning">⚠ Select at least 1 second of audio to analyze</p>
+      )}
+
+    </div>
+  )
+}
+
 // ── Main App Shell ────────────────────────────────────────────────────────────
 export default function App() {
   const [file, setFile]       = useState(null)
@@ -489,21 +696,157 @@ export default function App() {
   const [stemResult, setStemResult] = useState(null)       // response from /separate
   const [sepError, setSepError]     = useState(null)
 
+  // ── Region selector state ───────────────────────────────────────────────────
+  const [regionStep, setRegionStep]       = useState(false)
+  const [regionTarget, setRegionTarget]   = useState(null) // 'upload' | 'stem'
+  // regionStep: true = show RegionSelector in main content
+  // false = show empty state or result dashboard
+
+  const [stemDuration, setStemDuration]   = useState(0)
+  // Total duration of the guitar stem in seconds (set after audio is decoded)
+
+  const [startSec, setStartSec]           = useState(0)
+  const [endSec, setEndSec]               = useState(30)
+  // Current selection bounds in seconds (floats, e.g. 12.5, 47.0)
+
+  const [previewPlaying, setPreviewPlaying] = useState(false)
+  // true while Web Audio is actively playing the selected region
+
+  // ── Web Audio API refs (not state — mutations don't trigger re-render) ───────
+  const audioCtxRef    = useRef(null)
+  // Holds the AudioContext singleton. Created lazily on first play.
+
+  const sourceNodeRef  = useRef(null)
+  // Holds the currently playing AudioBufferSourceNode. Replaced on each play.
+
+  const audioBufferRef = useRef(null)
+  // Holds the decoded AudioBuffer of the guitar stem WAV file.
+  // Decoded once when stem is loaded, reused for every preview.
+
   const onDrop = useCallback((e) => {
     e.preventDefault(); setDrag(false)
     if (e.dataTransfer.files?.[0]) selectFile(e.dataTransfer.files[0])
   }, [])
 
-  const selectFile = (f) => { setFile(f); setResult(null); setError(null) }
+  const selectFile = async (f) => {
+    setFile(f)
+    setResult(null)
+    setError(null)
+    setSepError(null)
+    setStemResult(null)
+    stopPreview()
 
-  const analyze = async () => {
-    if (!file) return
+    if (f && mode) {
+      setRegionTarget('upload')
+      setRegionStep(true)
+      try {
+        const arrayBuffer = await f.arrayBuffer()
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+        }
+        const decoded = await audioCtxRef.current.decodeAudioData(arrayBuffer)
+        audioBufferRef.current = decoded
+        const totalSecs = Math.floor(decoded.duration)
+        setStemDuration(totalSecs)
+        setStartSec(0)
+        setEndSec(Math.min(30, totalSecs))
+      } catch (err) {
+        console.warn('Could not decode uploaded file for preview:', err)
+      }
+    }
+  }
+
+  const analyzeFromStem = (jobId) => {
+    setResult(null)
+    setRegionTarget('stem')
+    setRegionStep(true)
+  }
+
+  const loadStemAudio = async (stemData) => {
+    // stemData is the response body from POST /separate
+    // stemData.guitar_stem is a path like "/stems/abc123/guitar.wav"
+    const url = `http://localhost:8000${stemData.guitar_stem}`
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const arrayBuffer = await response.arrayBuffer()
+
+      // Create AudioContext once — browsers need a user gesture first,
+      // and the user has already clicked "Separate Stems" by this point
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      }
+
+      const decoded = await audioCtxRef.current.decodeAudioData(arrayBuffer)
+      audioBufferRef.current = decoded
+
+      const totalSecs = Math.floor(decoded.duration)
+      setStemDuration(totalSecs)
+      setStartSec(0)
+      // Default end: first 30s or full duration if shorter
+      setEndSec(Math.min(30, totalSecs))
+    } catch (err) {
+      // Non-fatal: region selector still works, preview button will be disabled
+      console.warn('[loadStemAudio] Could not decode audio for preview:', err)
+    }
+  }
+
+  const playPreview = () => {
+    if (!audioBufferRef.current || !audioCtxRef.current) return
+
+    // Stop anything currently playing
+    if (sourceNodeRef.current) {
+      try { sourceNodeRef.current.stop() } catch (_) {}
+      sourceNodeRef.current = null
+    }
+
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume()
+
+    const source = ctx.createBufferSource()
+    source.buffer = audioBufferRef.current
+    source.connect(ctx.destination)
+
+    const offset   = Math.max(0, startSec)
+    const duration = Math.max(0.1, endSec - startSec)
+    // start(when, offset, duration):
+    //   when=0     → play immediately
+    //   offset     → start from this position in the AudioBuffer
+    //   duration   → play for this many seconds then stop automatically
+    source.start(0, offset, duration)
+
+    source.onended = () => {
+      setPreviewPlaying(false)
+      sourceNodeRef.current = null
+    }
+
+    sourceNodeRef.current = source
+    setPreviewPlaying(true)
+  }
+
+  const stopPreview = () => {
+    if (sourceNodeRef.current) {
+      try { sourceNodeRef.current.stop() } catch (_) {}
+      sourceNodeRef.current = null
+    }
+    setPreviewPlaying(false)
+  }
+
+  const analyzeUploadRegion = async () => {
+    stopPreview()
+    if (endSec - startSec < 1.0) {
+      setError('Select at least 1 second of audio before analyzing.')
+      return
+    }
     setLoading(true); setError(null)
     const fd = new FormData()
     fd.append('file', file)
+    fd.append('start_sec', String(startSec))
+    fd.append('end_sec', String(endSec))
     try {
-      const res = await axios.post('http://localhost:8000/analyze', fd)
+      const res = await axios.post('http://localhost:8000/analyze-upload-region', fd)
       setResult(res.data)
+      setRegionStep(false)
     } catch (err) {
       setError(err.response?.data?.detail || 'Analysis failed. Make sure backend is running.')
     } finally {
@@ -511,17 +854,26 @@ export default function App() {
     }
   }
 
-  const separateSong = async () => {
-    if (!file) return
+  const separateSongRegion = async () => {
+    stopPreview()
+    if (endSec - startSec < 1.0) {
+      setSepError('Select at least 1 second of audio before separating.')
+      return
+    }
     setSeparating(true)
     setSepError(null)
     const fd = new FormData()
     fd.append('file', file)
+    fd.append('start_sec', String(startSec))
+    fd.append('end_sec', String(endSec))
     try {
       const res = await axios.post('http://localhost:8000/separate', fd, {
-        timeout: 300000,   // 5 min timeout — separation can be slow on CPU
+        timeout: 300000,
       })
       setStemResult(res.data)
+      setRegionTarget('stem')
+      setRegionStep(true)
+      loadStemAudio(res.data)
     } catch (err) {
       setSepError(err.response?.data?.detail || 'Separation failed. Check backend.')
     } finally {
@@ -529,20 +881,49 @@ export default function App() {
     }
   }
 
-  const analyzeFromStem = async (jobId) => {
+  const analyzeStemRegion = async () => {
+    if (!stemResult) return
+    stopPreview()
+
+    // Client-side guard — backend also validates
+    if (endSec - startSec < 1.0) {
+      setError('Select at least 1 second of audio before analyzing.')
+      return
+    }
+
     setLoading(true)
     setError(null)
+
+    const fd = new FormData()
+    fd.append('job_id',    stemResult.job_id)
+    fd.append('stem',      'guitar')
+    fd.append('start_sec', String(startSec))
+    fd.append('end_sec',   String(endSec))
+
     try {
       const res = await axios.post(
-        `http://localhost:8000/analyze-stem?job_id=${jobId}&stem=guitar`
+        'http://localhost:8000/analyze-stem-region',
+        fd
+        // No Content-Type header — axios sets multipart/form-data automatically
       )
       setResult(res.data)
+      setRegionStep(false)
     } catch (err) {
       setError(err.response?.data?.detail || 'Analysis failed.')
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    return () => {
+      stopPreview()
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close()
+        audioCtxRef.current = null
+      }
+    }
+  }, [])
 
   return (
     <div className="app-container">
@@ -573,7 +954,17 @@ export default function App() {
         {mode && (
           <div className="mode-selected-bar">
             <span className="mode-chip">{mode === 'stem' ? '🎸 Guitar stem' : '🎵 Full mix'}</span>
-            <button className="mode-change" onClick={() => { setMode(null); setFile(null); setStemResult(null) }}>
+            <button className="mode-change" onClick={() => {
+              setMode(null);
+              setFile(null);
+              setStemResult(null);
+              stopPreview();
+              setRegionStep(false);
+              setStemDuration(0);
+              setStartSec(0);
+              setEndSec(30);
+              audioBufferRef.current = null;
+            }}>
               Change
             </button>
           </div>
@@ -605,19 +996,6 @@ export default function App() {
           </section>
         )}
 
-        {mode === 'stem' && (
-          <button className="btn-analyze" disabled={!file || loading} onClick={analyze}>
-            {loading ? <span className="spinner" /> : 'Analyze Tone'}
-          </button>
-        )}
-
-        {mode === 'mix' && !stemResult && (
-          <button className="btn-separate" disabled={!file || separating} onClick={separateSong}>
-            {separating
-              ? <><span className="spinner spinner-dark" /><span>Separating…</span></>
-              : 'Separate Stems'}
-          </button>
-        )}
 
         {mode === 'mix' && stemResult && (
           <StemResultPanel
@@ -629,25 +1007,103 @@ export default function App() {
       </aside>
 
       <main className="main-content">
-        {separating && !result && (
+
+        {/* ── A: Stem separation in progress ── */}
+        {separating && (
           <div className="loading-overlay">
             <div className="loading-spinner" />
             <p className="loading-text">Separating stems…</p>
-            <p className="loading-subtext">This takes 1–3 min on CPU · 10–30s on GPU</p>
+            <p className="loading-subtext">1–3 min on CPU · 10–30s on GPU</p>
           </div>
         )}
-        {!separating && loading ? (
+
+        {/* ── B: Region selector step ── */}
+        {!separating && regionStep && (regionTarget === 'upload' ? file : stemResult) && !result && (
+          <div className="region-step-canvas">
+            <div className="region-step-header">
+              <h3 className="region-step-title">{regionTarget === 'upload' ? 'Audio Loaded' : 'Guitar Stem Ready'}</h3>
+              <p className="region-step-sub">
+                Drag the handles or type exact times to select the part you want to
+                {regionTarget === 'upload' && mode === 'mix' ? ' separate.' : ' analyze.'}
+                Hit Preview to hear it, then {regionTarget === 'upload' && mode === 'mix' ? 'Separate Region' : 'Analyze Selection'}.
+              </p>
+            </div>
+
+            <RegionSelector
+              duration={stemDuration}
+              startSec={startSec}
+              endSec={endSec}
+              onStartChange={(v) => { stopPreview(); setStartSec(parseFloat(v.toFixed(1))) }}
+              onEndChange={(v)   => { stopPreview(); setEndSec(parseFloat(v.toFixed(1))) }}
+              onPlay={playPreview}
+              onStop={stopPreview}
+              onAnalyze={() => {
+                if (regionTarget === 'upload') {
+                  if (mode === 'stem') analyzeUploadRegion()
+                  if (mode === 'mix') separateSongRegion()
+                } else {
+                  analyzeStemRegion()
+                }
+              }}
+              playing={previewPlaying}
+              loading={loading || separating}
+              stemUrl={regionTarget === 'stem' && stemResult ? `http://localhost:8000${stemResult.guitar_stem}` : file?.name || 'fake'}
+              analyzeLabel={regionTarget === 'upload' && mode === 'mix' ? 'Separate Region' : 'Analyze Selection'}
+            />
+
+            {error && <p className="error-msg" style={{ marginTop: '12px' }}>{error}</p>}
+            {sepError && <p className="error-msg" style={{ marginTop: '12px' }}>{sepError}</p>}
+          </div>
+        )}
+
+        {/* ── C: Analysis in progress (from region) ── */}
+        {!separating && loading && !result && (
           <div className="loading-overlay">
             <div className="loading-spinner" />
-            <p className="loading-text">Analyzing tone&hellip;</p>
+            <p className="loading-text">Analyzing region…</p>
+            <p className="loading-subtext">
+              {startSec.toFixed(1)}s → {endSec.toFixed(1)}s
+              &nbsp;·&nbsp;{(endSec - startSec).toFixed(1)}s
+            </p>
           </div>
-        ) : !separating && result ? (
-          <ResultDashboard chain={result.chain} features={result.features} debug={result.debug} />
-        ) : (
+        )}
+
+        {/* ── D: Result dashboard ── */}
+        {!separating && !loading && result && (
+          <>
+            {/* "Try different region" bar — only shown in mix mode */}
+            {mode === 'mix' && stemResult && (
+              <div className="region-back-bar">
+                <button
+                  className="region-back-btn"
+                  onClick={() => { setResult(null); setRegionStep(true) }}
+                >
+                  ← Try different region
+                </button>
+                {result.region && (
+                  <span className="region-back-info">
+                    Analyzed {result.region.start?.toFixed(1)}s – {result.region.end?.toFixed(1)}s
+                    &nbsp;({result.region.duration}s)
+                  </span>
+                )}
+              </div>
+            )}
+
+            <ResultDashboard
+              chain={result.chain}
+              features={result.features}
+              debug={result.debug}
+            />
+          </>
+        )}
+
+        {/* ── E: Empty state ── */}
+        {!separating && !loading && !result && !regionStep && (
           <div className="empty-state">
             Upload a guitar track or stem to generate a NUX Mighty Lite BT MK II patch.
           </div>
         )}
+
       </main>
     </div>
   )

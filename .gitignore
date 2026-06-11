@@ -1,24 +1,78 @@
-# Python
+# ── Python ──────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
-.env
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
 .venv/
 venv/
-uploads/
-stems/
-test.wav
+env/
+ENV/
 
-# Node
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# ── Backend runtime data ─────────────────────────────────────────────────────
+# Uploaded audio files (can be large)
+backend/uploads/
+uploads/
+
+# Separated stem audio files (large, regeneratable)
+backend/stems/
+stems/
+
+# ── Demucs / PyTorch model cache ─────────────────────────────────────────────
+# Demucs downloads ~300 MB models to the HuggingFace cache — never commit these
+.cache/
+~/.cache/
+*.pt
+*.pth
+*.ckpt
+*.bin
+
+# ── Audio files (generally large / binary) ───────────────────────────────────
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.aac
+*.m4a
+
+# ── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
+.npm/
 
-# Misc
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ── OS junk ──────────────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Logs & temp ──────────────────────────────────────────────────────────────
 *.log
+*.tmp
 tmp/
+temp/
+
+# ── Project-specific ignores ─────────────────────────────────────────────────
 NUX/
-backend_fix_prompt.md 
-stem_separation_prompt.md
 dataset/
+backend_fix_prompt.md
+stem_separation_prompt.md
 prompt.md
+future.md

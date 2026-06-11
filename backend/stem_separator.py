@@ -120,22 +120,64 @@ def separate_stems(input_path: str, output_dir: str) -> dict:
         )[0]                  # remove batch dim → [num_sources, channels, samples]
 
     # ── Save stems ────────────────────────────────────────────────────────────
+    # Compute the original mix RMS as a reference level.
+    # We use this to decide whether each stem has real content or is just
+    # the low-level residual noise Demucs produces for absent instruments.
+    mix_rms = float(torch.sqrt(torch.mean(waveform.float() ** 2)).item())
+    print(f"[stem_separator] Mix RMS: {mix_rms:.5f}")
+
+    # Thresholds (relative to mix RMS):
+    #   > 3%  → stem has real content, normalize to a comfortable listening level
+    #   1–3%  → weak presence, keep the raw Demucs output without any boost
+    #   < 1%  → instrument is absent, silence it to eliminate hiss
+    PRESENT_THRESHOLD = 0.03   # 3 % of mix RMS
+    ABSENT_THRESHOLD  = 0.01   # 1 % of mix RMS
+
     stem_paths = {}
     for i, name in enumerate(sources):
         stem_waveform = separated[i].cpu()   # [channels, samples]
-        out_path = os.path.join(output_dir, f"{name}.wav")
+        wav_path = os.path.join(output_dir, f"{name}.wav")
+        mp3_path = os.path.join(output_dir, f"{name}.mp3")
 
         # soundfile expects [samples, channels] — transpose
         audio_np = stem_waveform.numpy().T   # [samples, channels]
 
+        stem_rms = float(np.sqrt(np.mean(audio_np ** 2)))
+        max_val  = float(np.max(np.abs(audio_np)))
+
+        print(f"[stem_separator] {name}: stem_rms={stem_rms:.5f}  mix_rms={mix_rms:.5f}  ratio={stem_rms/max(mix_rms,1e-9):.3f}")
+
+        if stem_rms > PRESENT_THRESHOLD * mix_rms and max_val > 1e-4:
+            # Instrument is present — normalize to a clear listening level
+            audio_np = (audio_np / max_val) * 0.95
+        elif stem_rms < ABSENT_THRESHOLD * mix_rms:
+            # Instrument is absent — zero out to prevent hiss
+            # (Demucs residual noise amplified by normalization was the cause)
+            audio_np = np.zeros_like(audio_np)
+            print(f"[stem_separator] {name}: silenced (absent instrument)")
+        # else: weak presence — keep at natural Demucs output level, no boost
+
         # Clamp to [-1, 1] to prevent clipping artifacts
         audio_np = np.clip(audio_np, -1.0, 1.0)
 
-        sf.write(out_path, audio_np, sr, subtype="PCM_16")
-        stem_paths[name] = os.path.abspath(out_path)
-        print(f"[stem_separator] Saved {name}: {out_path}")
+        # Write temporary WAV first (lossless intermediate for ffmpeg)
+        sf.write(wav_path, audio_np, sr, subtype="PCM_16")
+
+        # Transcode to 320 kbps MP3 — ~10x smaller than WAV, no audible quality loss
+        subprocess.run([
+            "ffmpeg", "-y", "-i", wav_path,
+            "-codec:a", "libmp3lame", "-qscale:a", "0",  # VBR V0 ≈ 320kbps
+            "-ar", str(sr),
+            mp3_path
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Keep both WAV and MP3 on disk so callers can choose the format
+        stem_paths[name] = {"wav": os.path.abspath(wav_path), "mp3": os.path.abspath(mp3_path)}
+        print(f"[stem_separator] Saved {name}: wav + mp3")
 
     return stem_paths
+
+
 
 
 def get_guitar_stem_path(stem_paths: dict) -> str:

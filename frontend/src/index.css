@@ -37,7 +37,7 @@ body {
 /* ── App Layout ── */
 .app-container {
   display: flex;
-  height: 100vh;
+  height: 100%;
   width: 100vw;
   overflow: hidden;
 }
@@ -47,7 +47,7 @@ body {
   width: 300px;
   min-width: 300px;
   max-width: 300px;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1052,4 +1052,98 @@ body {
 .format-btn.active {
   background: var(--accent);
   color: #000;
+}
+
+/* ── Top Navbar ── */
+.navbar {
+  height: 64px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.navbar-brand-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.navbar-brand {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(160deg, #ffffff 0%, #888899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.navbar-tagline {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.navbar-tabs {
+  display: flex;
+  gap: 24px;
+  height: 100%;
+}
+
+.navbar-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  position: relative;
+  transition: color 0.2s;
+  padding: 0 4px;
+}
+
+.navbar-tab-btn:hover {
+  color: var(--text);
+}
+
+.navbar-tab-btn.active {
+  color: var(--accent);
+}
+
+.navbar-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.navbar-tab-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.soon-badge {
+  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  font-weight: 600;
 }

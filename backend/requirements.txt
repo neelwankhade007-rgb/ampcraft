@@ -1,9 +1,21 @@
-# Core — required to run the server
+# ── Web server ────────────────────────────────────────────────────────────────
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
 
-# Audio analysis — required for feature extraction
+# ── Audio I/O & analysis ──────────────────────────────────────────────────────
 librosa
-numpy
 soundfile
+numpy
+pydub
+
+# ── Deep learning — stem separation ──────────────────────────────────────────
+# Install PyTorch separately from https://pytorch.org/get-started/locally/
+# to pick the right CUDA/CPU build for your machine. Example (CPU-only):
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+torch
+torchaudio
+demucs
+
+# ── Note: ffmpeg is a system dependency, not a pip package ───────────────────
+# Install via: winget install ffmpeg   OR   choco install ffmpeg

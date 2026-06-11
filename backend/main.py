@@ -13,7 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 import shutil, uuid
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from stem_separator import separate_stems
+from backing_generator import generate_backing
 
 app = FastAPI()
 
@@ -30,12 +32,21 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 STEMS_DIR = "stems"
 os.makedirs(STEMS_DIR, exist_ok=True)
 
+BACKINGS_DIR = "backings"
+os.makedirs(BACKINGS_DIR, exist_ok=True)
+
+
+class BackingRequest(BaseModel):
+    job_id: str
+    backing_type: str
+
 
 @app.get("/")
 def home():
     return {"message": "AmpCraft Stem Splitter Backend Running ✂️"}
 
 app.mount("/stems", StaticFiles(directory=STEMS_DIR), name="stems")
+app.mount("/backings", StaticFiles(directory=BACKINGS_DIR), name="backings")
 
 
 @app.post("/upload")
@@ -101,14 +112,13 @@ async def separate(
         with open(os.path.join(job_stems_dir, "meta.json"), "w") as f:
             json.dump(meta, f)
 
-        # Serve MP3 URLs for browser playback (smaller, faster to stream)
+        # Serve MP3 URLs for browser playback — use actual filenames from stem_paths
         stem_urls = {
-            name: f"/stems/{job_id}/{name}.mp3"
-            for name in stem_paths.keys()
+            name: f"/stems/{job_id}/{os.path.basename(paths['mp3'])}"
+            for name, paths in stem_paths.items()
         }
 
-        guitar_url = f"/stems/{job_id}/guitar.mp3" if "guitar" in stem_paths \
-                     else f"/stems/{job_id}/other.mp3"
+        guitar_url = stem_urls.get("guitar") or stem_urls.get("other")
 
         return {
             "job_id":            job_id,
@@ -179,4 +189,58 @@ def download_stems(
             "Content-Length":      str(len(zip_bytes)),
             "Cache-Control":       "no-cache",
         },
+    )
+
+
+@app.post("/generate-backing")
+async def generate_backing_endpoint(request: BackingRequest):
+    try:
+        res = generate_backing(
+            job_id=request.job_id,
+            backing_type=request.backing_type
+        )
+        wav_url = f"/backings/{request.job_id}/{os.path.basename(res['wav_path'])}"
+        mp3_url = f"/backings/{request.job_id}/{os.path.basename(res['mp3_path'])}"
+        return {
+            "success": True,
+            "job_id": request.job_id,
+            "backing_type": request.backing_type,
+            "wav_url": wav_url,
+            "mp3_url": mp3_url
+        }
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Stems not found. Separate stems first."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+@app.get("/download-backing/{job_id}/{filename}")
+def download_backing(job_id: str, filename: str):
+    """Force-download a generated backing track file."""
+    file_path = os.path.join(BACKINGS_DIR, job_id, filename)
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="Backing file not found.")
+    return FileResponse(
+        file_path,
+        filename=filename,
+        media_type="application/octet-stream",
+    )
+
+
+@app.get("/download-stem/{job_id}/{filename}")
+def download_stem(job_id: str, filename: str):
+    """Force-download a single stem file."""
+    file_path = os.path.join(STEMS_DIR, job_id, filename)
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="Stem file not found.")
+    return FileResponse(
+        file_path,
+        filename=filename,
+        media_type="application/octet-stream",
     )

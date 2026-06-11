@@ -66,6 +66,10 @@ def separate_stems(input_path: str, output_dir: str) -> dict:
 
     os.makedirs(output_dir, exist_ok=True)
 
+    base_name = os.path.splitext(
+        os.path.basename(input_path)
+    )[0]
+
     model, sources = _get_model()
 
     # ── Load audio ────────────────────────────────────────────────────────────
@@ -136,8 +140,15 @@ def separate_stems(input_path: str, output_dir: str) -> dict:
     stem_paths = {}
     for i, name in enumerate(sources):
         stem_waveform = separated[i].cpu()   # [channels, samples]
-        wav_path = os.path.join(output_dir, f"{name}.wav")
-        mp3_path = os.path.join(output_dir, f"{name}.mp3")
+        wav_path = os.path.join(
+            output_dir,
+            f"{base_name}_{name}.wav"
+        )
+
+        mp3_path = os.path.join(
+            output_dir,
+            f"{base_name}_{name}.mp3"
+        )
 
         # soundfile expects [samples, channels] — transpose
         audio_np = stem_waveform.numpy().T   # [samples, channels]

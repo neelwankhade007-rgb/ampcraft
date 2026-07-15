@@ -193,31 +193,58 @@ def download_stems(
 
 
 @app.post("/generate-backing")
-async def generate_backing_endpoint(request: BackingRequest):
+async def generate_backing_endpoint(
+    file: UploadFile = File(...),
+    backing_type: str = Form(...),
+    start_sec: float = Form(-1.0),
+    end_sec:   float = Form(-1.0),
+):
     try:
+        job_id = uuid.uuid4().hex[:12]
+        safe_name = os.path.basename(file.filename or f"upload_{job_id}.wav").replace(" ", "_")
+        upload_path = os.path.join(UPLOAD_DIR, f"{job_id}_{safe_name}")
+
+        with open(upload_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Trim before separating if bounds are valid
+        if start_sec >= 0 and end_sec > start_sec:
+            import librosa
+            import soundfile as sf
+            y, sr = librosa.load(upload_path, offset=start_sec, duration=end_sec - start_sec, sr=None)
+            sf.write(upload_path, y, sr)
+
+        base_name_no_ext, _ = os.path.splitext(safe_name)
+
         res = generate_backing(
-            job_id=request.job_id,
-            backing_type=request.backing_type
+            input_audio_path=upload_path,
+            backing_type=backing_type,
+            job_id=job_id,
+            base_name=base_name_no_ext
         )
-        wav_url = f"/backings/{request.job_id}/{os.path.basename(res['wav_path'])}"
-        mp3_url = f"/backings/{request.job_id}/{os.path.basename(res['mp3_path'])}"
+
+        # Clean up the original uploaded file
+        if os.path.exists(upload_path):
+            try:
+                os.remove(upload_path)
+            except Exception as e:
+                print(f"Error removing uploaded/trimmed file: {e}")
+
+        wav_url = f"/backings/{job_id}/{os.path.basename(res['wav_path'])}"
+        mp3_url = f"/backings/{job_id}/{os.path.basename(res['mp3_path'])}"
         return {
             "success": True,
-            "job_id": request.job_id,
-            "backing_type": request.backing_type,
+            "job_id": job_id,
+            "backing_type": backing_type,
             "wav_url": wav_url,
             "mp3_url": mp3_url
         }
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=404,
-            detail="Stems not found. Separate stems first."
-        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=str(e)
         )
+
 
 
 @app.get("/download-backing/{job_id}/{filename}")

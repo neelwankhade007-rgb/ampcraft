@@ -1,0 +1,46 @@
+[
+    {
+        "name": "Chorus",
+        "knobs": ["Rate", "Depth"]
+    },
+    {
+        "name": "CE-1",
+        "knobs": ["Rate", "Depth"]
+    },
+    {
+        "name": "60 Chorus",
+        "knobs": ["Intensity", "Width", "Rate"]
+    },
+    {
+        "name": "Vibrato",
+        "knobs": ["Rate", "Depth"]
+    },
+    {
+        "name": "Flanger",
+        "knobs": ["Level", "Rate", "Width", "Feedback"]
+    },
+    {
+        "name": "Phase 90",
+        "knobs": ["Speed"]
+    },
+    {
+        "name": "Phase 100",
+        "knobs": ["Intensity", "Speed"]
+    },
+    {
+        "name": "SCK",
+        "knobs": ["Speed", "Width", "Intensity"]
+    },
+    {
+        "name": "Uni-Vibe",
+        "knobs": ["Rate", "Depth"]
+    },
+    {
+        "name": "Tremolo",
+        "knobs": ["Rate", "Depth"]
+    },
+    {
+        "name": "SCH-1",
+        "knobs": ["Rate", "Depth", "Tone"]
+    }
+]

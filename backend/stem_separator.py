@@ -38,7 +38,7 @@ def _get_model():
     return _model, _model_sources
 
 
-def separate_stems(input_path: str, output_dir: str) -> dict:
+def separate_stems(input_path: str, output_dir: str, normalize: bool = True) -> dict:
     """
     Run htdemucs_6s on input_path. Saves all 6 stems as WAV files
     into output_dir. Returns a dict mapping stem name → absolute file path.
@@ -46,6 +46,7 @@ def separate_stems(input_path: str, output_dir: str) -> dict:
     Args:
         input_path:  Absolute path to input audio file (wav, mp3, flac, etc.)
         output_dir:  Directory to write stem WAV files into. Created if needed.
+        normalize:   If True, normalizes present stems to 0.95 peak volume.
 
     Returns:
         {
@@ -158,7 +159,7 @@ def separate_stems(input_path: str, output_dir: str) -> dict:
 
         print(f"[stem_separator] {name}: stem_rms={stem_rms:.5f}  mix_rms={mix_rms:.5f}  ratio={stem_rms/max(mix_rms,1e-9):.3f}")
 
-        if stem_rms > PRESENT_THRESHOLD * mix_rms and max_val > 1e-4:
+        if normalize and stem_rms > PRESENT_THRESHOLD * mix_rms and max_val > 1e-4:
             # Instrument is present — normalize to a clear listening level
             audio_np = (audio_np / max_val) * 0.95
         elif stem_rms < ABSENT_THRESHOLD * mix_rms:

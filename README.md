@@ -1,143 +1,118 @@
 # 🎸 AmpCraft
 
-> Upload any guitar audio and get a complete amp + effects signal chain preset — powered by professional audio signal processing.
+> Separate audio stems, build custom backing tracks, and prepare for ultimate tone modeling. Powered by Meta's Demucs AI model (`htdemucs_6s`) and FastAPI.
 
 ---
 
-## How It Works
+## 🚀 Key Features
 
-```
-audio file (guitar track or full song mix)
-   ↓
-[If full song] stem_separator.py → extracts isolated guitar stem via Demucs
-   ↓
-feature_extractor.py  →  extracts ZCR, RMS, flatness, centroid, and rolloff
-   ↓
-tone_engine.py        →  Dominant Distortion Rule (ZCR-based) + Lead/Palm-Mute Detection
-   ↓
-tone_engine.py        →  builds smart gear chain (amp, cab, efx, mod, delay, reverb)
-   ↓
-JSON response
-```
-
-No randomness. No complex ML latency. Just fast, deterministic heuristics that match the physics of guitar tone.
+*   **✂️ AI Stem Separator**: Splits any song into 6 isolated stems: **Drums**, **Bass**, **Vocals**, **Guitar**, **Piano**, and **Other** using deep learning stem separation.
+*   **⏱️ Custom Trimming**: Select start and end times to trim and process only a specific portion of your track.
+*   **🎚️ Interactive Mixer & Player**: Multi-track stem player on the frontend with individual volume faders, solo/mute buttons, and a global master fader.
+*   **🎹 Backing Maker**: Generate custom backing tracks on demand by muting a specific instrument (Guitar, Bass, Drums, Piano, or Vocals) and automatically mixing the remaining stems.
+*   **📦 ZIP & Individual Downloads**: Fast, on-the-fly packaging of separated stems as a ZIP file (MP3/WAV format) or downloading single stems directly.
 
 ---
 
-## Project Structure
+## 🛠️ Tech Stack
+
+| Layer | Technologies / Packages |
+| :--- | :--- |
+| **Backend** | Python, FastAPI, Demucs AI (`htdemucs_6s`), PyTorch, Librosa, SoundFile, PyDub, Uvicorn |
+| **Frontend** | React, Vite, Axios, WaveSurfer.js / custom audio mixing nodes, Vanilla CSS |
+| **System Deps** | FFmpeg |
+
+---
+
+## 📂 Project Structure
 
 ```
 ampcraft/
 ├── backend/
-│   ├── main.py               # FastAPI routes + response orchestration
-│   ├── stem_separator.py     # Demucs AI stem separation wrapper
-│   ├── tone_engine.py        # Core logic: Classification, style detection, and chain generation
-│   ├── feature_extractor.py  # Audio feature extraction via librosa
-│   ├── gear.json             # Gear database (amps, cabs, effects parameters)
-│   ├── requirements.txt
-│   └── uploads/              # Uploaded audio files (auto-created)
+│   ├── main.py               # FastAPI router, endpoints & CORS configuration
+│   ├── stem_separator.py     # Demucs model wrapper & MP3/WAV output writers
+│   ├── backing_generator.py  # Stem-muting mixer & audio normalizer logic
+│   ├── requirements.txt      # Python package list (FastAPI, Torchaudio, Demucs)
+│   ├── genre/
+│   │   ├── feature_extractor.py # Audio feature extractor (Librosa)
+│   │   └── predict.py        # Genre predictor script
+│   ├── models/               # Pre-trained models (scaler, encoder, classifiers)
+│   ├── uploads/              # Temporary audio uploads (auto-generated)
+│   ├── stems/                # Separated stems output folder (auto-generated)
+│   └── backings/             # Mixed backing tracks folder (auto-generated)
 └── frontend/
-    ├── src/
-    │   ├── App.jsx           # React UI with real-time debug visualization
-    │   └── App.css
-    └── index.html
+    ├── package.json          # React app configurations
+    ├── vite.config.js
+    ├── index.html
+    └── src/
+        ├── App.jsx           # Tab navigator & UI state container
+        ├── index.css         # Styling system & UI tokens
+        └── components/       # UI Components
+            ├── StemSeparator.jsx  # File uploader, trimmer & separator trigger
+            ├── BackingGenerator.jsx # Backing track selection & generation
+            ├── GlobalMixer.jsx    # Master volume control & mute/solo actions
+            ├── StemRow.jsx        # Waveform visualizer & slider for individual stems
+            └── WaveformPlayer.jsx # Audio playback container
 ```
 
 ---
 
-## Setup & Run
+## ⚙️ Setup & Installation
 
-### Backend
-```bash
-cd backend
-pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
-```
+### 1. Prerequisites (FFmpeg)
+AmpCraft requires **FFmpeg** to encode and decode MP3/WAV files.
+*   **Windows**: Run `winget install ffmpeg` or `choco install ffmpeg`
+*   **macOS**: Run `brew install ffmpeg`
+*   **Linux**: Run `sudo apt install ffmpeg`
 
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### 2. Backend Setup
+1. Create and activate a Python virtual environment:
+   ```bash
+   cd backend
+   python -m venv .venv
+   # Windows
+   .venv\Scripts\activate
+   # macOS/Linux
+   source .venv/bin/activate
+   ```
+2. Install PyTorch matching your hardware (CPU or GPU). For CPU-only:
+   ```bash
+   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+   ```
+3. Install the remaining requirements:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Start the backend server:
+   ```bash
+   python -m uvicorn main:app --reload --port 8000
+   ```
 
-- Frontend → `http://localhost:5173`
-- Backend  → `http://localhost:8000`
-
----
-
-## API
-
-| Method | Endpoint        | Description                                       |
-|--------|-----------------|---------------------------------------------------|
-| GET    | `/`             | Health check                                      |
-| POST   | `/upload`       | Upload audio                                      |
-| POST   | `/analyze`      | Upload audio → return tone preset                 |
-| POST   | `/separate`     | Upload full mix → separate into 6 stems           |
-| POST   | `/analyze-stem` | Analyze an isolated stem from a previous sequence |
-
-### `/analyze` response example
-
-```json
-{
-  "chain": {
-    "style": "Metal",
-    "gain_score": 0.1567,
-    "play_style": "rhythm",
-    "palm_muted": true,
-    "tone_character": "balanced",
-    "amp": { "type": "CALI IV", "enabled": true, "settings": [...] },
-    "cab": {
-      "type": "CALI 112",
-      "enabled": true,
-      "settings": [
-        { "label": "Model", "value": "CALI 112" },
-        { "label": "Low Cut (Hz)", "value": 80 },
-        { "label": "High Cut (Hz)", "value": 6500 },
-        { "label": "Level (dB)", "value": 0.0 }
-      ]
-    },
-    "delay": { "type": "None", "enabled": false, "settings": [] }
-  },
-  "debug": {
-    "centroid": 2107,
-    "rolloff": 4446,
-    "flatness": 0.0031,
-    "zcr": 0.1589,
-    "rms": 0.2067,
-    "gain_score": 0.1567
-  }
-}
-```
+### 3. Frontend Setup
+1. Install dependencies and start the local development server:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+2. Open your browser and navigate to `http://localhost:5173`.
 
 ---
 
-## Tone Classification & Intelligence
+## 🔌 API Documentation
 
-AmpCraft uses a professional-grade **Dominant Distortion Heuristic** to map audio features to gear:
-
-### 1. Dominant Distortion Rule (ZCR-based)
-Categorizes tones into **Metal**, **High Gain**, **Rock**, **Blues**, and **Clean** based on harmonic energy and "fizz." 
-- **High-Attack Sensitivity**: Prioritizes ZCR (Zero Crossing Rate) to ensure heavily distorted parts are identified even at lower volumes.
-
-### 2. Intelligent Playing-Style Detection
-- **Lead vs Rhythm**: Automatically distinguishes between singing solos and dry rhythm parts using hybrid RMS and spectral feature analysis.
-- **Palm Mute Detection**: Identifies tight, percussive riffage. When detected, the engine forces the signal into a "dry" state (disabling delay/reverb) to maintain maximum clarity and punch.
-
-### 3. Style-Aware Effects Routing
-- Dynamically adjusts ambience (Delay, Reverb, Modulation) based on the genre. Metal rhythm stays tight and dry, while Rock and Blues leads receive warm, analog-style ambience.
-
-### 4. Real-World Audio Units
-- **Cabinet (IR) Parameters** are expressed in professional mixing units:
-    - **Frequency cuts in Hz** (20–20,000 Hz).
-    - **Output levels in dB** (-12.0 to +12.0 dB).
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| **GET** | `/` | Health check route |
+| **POST** | `/upload` | Uploads an audio file and returns its safe filename |
+| **POST** | `/separate` | Separates a track into 6 stems with optional `start_sec` and `end_sec` trimming. Returns MP3 stem URLs. |
+| **GET** | `/download-stems/{job_id}` | Packs and downloads all stems as a ZIP archive (Supports query parameter `?format=mp3` or `?format=wav`). |
+| **GET** | `/download-stem/{job_id}/{filename}` | Downloads a single isolated stem file directly |
+| **POST** | `/generate-backing` | Generates a backing track muting one instrument (`guitar`, `bass`, `drums`, `piano`, `karaoke`) and mixes the rest. |
+| **GET** | `/download-backing/{job_id}/{filename}` | Downloads the generated backing track file |
 
 ---
 
-## Tech Stack
-
-| Layer    | Tech                          |
-|----------|-------------------------------|
-| Backend  | Python, FastAPI, librosa      |
-| Frontend | React, Vite, Axios            |
-| Gear DB  | `gear.json` (hierarchical DB) |
+## 🔮 Roadmap / Future Work
+- **🎸 Tone Matcher**: Complete the integration of the DSP neural network tone matching and digital twin parameter estimation (see [future.md](file:///d:/Projects/ampcraft/future.md)).
+- **📱 Responsive Layout & Mobile Support**: Optimize multi-track waveforms for smaller screen widths.

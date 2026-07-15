@@ -1,0 +1,22 @@
+[
+    {
+        "name": "Analog",
+        "knobs": ["Time", "Repeat", "Mix"]
+    },
+    {
+        "name": "Digital",
+        "knobs": ["Time", "Repeat", "Mix"]
+    },
+    {
+        "name": "Mod Delay",
+        "knobs": ["Time", "Repeat", "Mix", "Mod"]
+    },
+    {
+        "name": "Tape Echo",
+        "knobs": ["Time", "Repeat", "Mix"]
+    },
+    {
+        "name": "HiFi Delay",
+        "knobs": ["Time", "Repeat", "Mix"]
+    }
+]

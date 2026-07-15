@@ -4,12 +4,47 @@ import numpy as np
 import soundfile as sf
 from pydub import AudioSegment
 
-PRESETS = {
-    "guitar": "guitar",
-    "bass": "bass",
-    "drums": "drums",
-    "piano": "piano",
-    "karaoke": "vocals",
+BACKING_CONFIGS = {
+    "guitar": {
+        "guitar": 0.20,
+        "bass": 1.0,
+        "drums": 1.0,
+        "piano": 1.0,
+        "vocals": 1.0,
+        "other": 1.0
+    },
+    "bass": {
+        "guitar": 1.0,
+        "bass": 0.20,
+        "drums": 1.0,
+        "piano": 1.0,
+        "vocals": 1.0,
+        "other": 1.0
+    },
+    "drums": {
+        "guitar": 1.0,
+        "bass": 1.0,
+        "drums": 0.20,
+        "piano": 1.0,
+        "vocals": 1.0,
+        "other": 1.0
+    },
+    "piano": {
+        "guitar": 1.0,
+        "bass": 1.0,
+        "drums": 1.0,
+        "piano": 0.20,
+        "vocals": 1.0,
+        "other": 1.0
+    },
+    "karaoke": {
+        "guitar": 1.0,
+        "bass": 1.0,
+        "drums": 1.0,
+        "piano": 1.0,
+        "vocals": 0.0,
+        "other": 1.0
+    }
 }
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -17,167 +52,142 @@ STEMS_DIR = os.path.join(BASE_DIR, "stems")
 BACKINGS_DIR = os.path.join(BASE_DIR, "backings")
 
 
+from stem_separator import separate_stems
+import shutil
+
 def generate_backing(
+    input_audio_path: str,
+    backing_type: str,
     job_id: str,
-    backing_type: str
+    base_name: str
 ):
     """
-    Generates a backing track from existing stems.
-
-    Requires:
-        stems/<job_id>/
-
-    Produces:
-        backings/<job_id>/
+    Generates a backing track by separating input_audio_path and mixing stems.
+    Intermediate stems are saved under a temp folder inside backings/ and then deleted.
     """
 
-    if backing_type not in PRESETS:
+    if backing_type not in BACKING_CONFIGS:
         raise ValueError(
             f"Unsupported backing type: {backing_type}"
         )
 
-    muted_stem = PRESETS[backing_type]
-
-    # --------------------------------------------------
-    # Verify stems exist
-    # --------------------------------------------------
-
-    stems_dir = os.path.join(
-        STEMS_DIR,
-        job_id
-    )
-
-    if not os.path.exists(stems_dir):
-        raise FileNotFoundError(
-            f"Stems not found for job {job_id}. "
-            f"Separate stems first."
-        )
-
-    # --------------------------------------------------
-    # Read metadata
-    # --------------------------------------------------
-
-    meta_path = os.path.join(
-        stems_dir,
-        "meta.json"
-    )
-
-    if not os.path.exists(meta_path):
-        raise FileNotFoundError(
-            f"meta.json missing for job {job_id}"
-        )
-
-    with open(meta_path, "r") as f:
-        meta = json.load(f)
-
-    base_name = meta["base_name"]
-
-    # --------------------------------------------------
-    # Determine stems to mix
-    # --------------------------------------------------
-
-    active_stems = []
-
-    for filename in os.listdir(stems_dir):
-
-        if not filename.endswith(".wav"):
-            continue
-
-        stem_name = filename.replace(".wav", "")
-
-        # Supports:
-        # guitar.wav
-        # Song_guitar.wav
-
-        if (
-            stem_name == muted_stem
-            or stem_name.endswith(f"_{muted_stem}")
-        ):
-            print(f"Skipping: {filename}")
-            continue
-
-        active_stems.append(filename)
-
-    if not active_stems:
-        raise RuntimeError(
-            "No stems available for mixing"
-        )
-
-    print("\nMixing:")
-    for stem in active_stems:
-        print(f"  {stem}")
-
-    # --------------------------------------------------
-    # Mix stems
-    # --------------------------------------------------
-
-    mix = None
-    sample_rate = None
-
-    for stem in active_stems:
-
-        stem_path = os.path.join(
-            stems_dir,
-            stem
-        )
-
-        audio, sr = sf.read(stem_path)
-
-        if mix is None:
-            mix = audio.copy()
-            sample_rate = sr
-        else:
-            mix += audio
-
-    # --------------------------------------------------
-    # Normalize
-    # --------------------------------------------------
-
-    peak = np.max(np.abs(mix))
-
-    if peak > 1.0:
-        mix = mix / peak
-
-    # --------------------------------------------------
-    # Create output folder
-    # --------------------------------------------------
-
+    # Create target directory for backing track
     backing_dir = os.path.join(
         BACKINGS_DIR,
         job_id
     )
-
     os.makedirs(
         backing_dir,
         exist_ok=True
     )
 
-    # --------------------------------------------------
-    # Output paths
-    # --------------------------------------------------
-
-    wav_filename = (
-        f"{base_name}_{backing_type}_backing.wav"
-    )
-
-    mp3_filename = (
-        f"{base_name}_{backing_type}_backing.mp3"
-    )
-
-    wav_path = os.path.join(
+    # Temporary directory for stems within the backing output folder
+    temp_stems_dir = os.path.join(
         backing_dir,
-        wav_filename
+        "temp_stems"
+    )
+    os.makedirs(
+        temp_stems_dir,
+        exist_ok=True
     )
 
-    mp3_path = os.path.join(
-        backing_dir,
-        mp3_filename
-    )
+    try:
+        # 1. Run stem separation
+        separate_stems(input_audio_path, temp_stems_dir, normalize=False)
 
-    if os.path.exists(wav_path) and os.path.exists(mp3_path):
-        print("\nBacking track already exists. Returning cached files:")
+        # 2. Determine stems to mix and their scales
+        active_stems = []
+        config = BACKING_CONFIGS[backing_type]
+
+        for filename in os.listdir(temp_stems_dir):
+            if not filename.endswith(".wav"):
+                continue
+
+            # Identify the stem type by checking suffix
+            matched_stem_type = None
+            for stem_type in ["drums", "bass", "other", "vocals", "guitar", "piano"]:
+                if filename.endswith(f"_{stem_type}.wav"):
+                    matched_stem_type = stem_type
+                    break
+
+            if matched_stem_type is None:
+                continue
+
+            scale = config.get(matched_stem_type, 1.0)
+            if scale == 0.0:
+                print(f"Skipping (0% volume): {filename}")
+                continue
+
+            active_stems.append((filename, scale))
+
+        if not active_stems:
+            raise RuntimeError(
+                "No stems available for mixing"
+            )
+
+        print("\nMixing:")
+        for stem, scale in active_stems:
+            print(f"  {stem} (scale={scale})")
+
+        # 3. Mix stems
+        mix = None
+        sample_rate = None
+
+        for stem, scale in active_stems:
+            stem_path = os.path.join(
+                temp_stems_dir,
+                stem
+            )
+            audio, sr = sf.read(stem_path)
+
+            scaled_audio = audio * scale
+
+            if mix is None:
+                mix = scaled_audio.copy()
+                sample_rate = sr
+            else:
+                mix += scaled_audio
+
+        # Normalize
+        peak = np.max(np.abs(mix))
+        if peak > 1.0:
+            mix = mix / peak
+
+        # Output paths
+        wav_filename = (
+            f"{base_name}_{backing_type}_backing.wav"
+        )
+        mp3_filename = (
+            f"{base_name}_{backing_type}_backing.mp3"
+        )
+
+        wav_path = os.path.join(
+            backing_dir,
+            wav_filename
+        )
+        mp3_path = os.path.join(
+            backing_dir,
+            mp3_filename
+        )
+
+        # Save WAV
+        sf.write(
+            wav_path,
+            mix,
+            sample_rate
+        )
+
+        # Save MP3
+        AudioSegment.from_wav(wav_path).export(
+            mp3_path,
+            format="mp3",
+            bitrate="320k"
+        )
+
+        print("\nGenerated:")
         print(wav_path)
         print(mp3_path)
+
         return {
             "job_id": job_id,
             "backing_type": backing_type,
@@ -185,36 +195,15 @@ def generate_backing(
             "mp3_path": mp3_path,
         }
 
-    # --------------------------------------------------
-    # Save WAV
-    # --------------------------------------------------
+    finally:
+        # 4. Clean up temporary stems
+        if os.path.exists(temp_stems_dir):
+            try:
+                shutil.rmtree(temp_stems_dir)
+                print(f"Cleaned up intermediate backing stems in: {temp_stems_dir}")
+            except Exception as e:
+                print(f"Error cleaning up intermediate backing stems: {e}")
 
-    sf.write(
-        wav_path,
-        mix,
-        sample_rate
-    )
-
-    # --------------------------------------------------
-    # Save MP3
-    # --------------------------------------------------
-
-    AudioSegment.from_wav(wav_path).export(
-        mp3_path,
-        format="mp3",
-        bitrate="320k"
-    )
-
-    print("\nGenerated:")
-    print(wav_path)
-    print(mp3_path)
-
-    return {
-        "job_id": job_id,
-        "backing_type": backing_type,
-        "wav_path": wav_path,
-        "mp3_path": mp3_path,
-    }
 
 
 if __name__ == "__main__":

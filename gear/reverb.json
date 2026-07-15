@@ -1,0 +1,22 @@
+[
+    {
+        "name": "Room",
+        "knobs": ["Decay", "Level", "Tone"]
+    },
+    {
+        "name": "Hall",
+        "knobs": ["Decay", "Level", "Tone"]
+    },
+    {
+        "name": "Plate",
+        "knobs": ["Decay", "Level"]
+    },
+    {
+        "name": "Spring",
+        "knobs": ["Decay", "Level"]
+    },
+    {
+        "name": "Damp",
+        "knobs": ["Decay", "Level"]
+    }
+]

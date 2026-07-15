@@ -1,0 +1,70 @@
+[
+    {
+        "name": "Compressor",
+        "knobs": ["Gain", "Volume", "Treble"]
+    },
+    {
+        "name": "Booster",
+        "knobs": ["Gain", "Volume", "Treble"]
+    },
+    {
+        "name": "Overdrive",
+        "knobs": ["Level", "Tone", "Drive"]
+    },
+    {
+        "name": "Distortion",
+        "knobs": ["Level", "Tone", "Gain"]
+    },
+    {
+        "name": "Dist+",
+        "knobs": ["Volume", "Drive"]
+    },
+    {
+        "name": "Dist One",
+        "knobs": ["Distortion", "Filter", "Volume"]
+    },
+    {
+        "name": "Tube Drive",
+        "knobs": ["Drive", "Tone", "Level"]
+    },
+    {
+        "name": "Fuzz",
+        "knobs": ["Volume", "Tone", "Gain"]
+    },
+    {
+        "name": "Boost",
+        "knobs": ["Volume", "Sustain"]
+    },
+    {
+        "name": "EQ Boost",
+        "knobs": ["Volume"]
+    },
+    {
+        "name": "Graphic EQ",
+        "knobs": ["Volume", "Gain", "Filter"]
+    },
+    {
+        "name": "Sustainer",
+        "knobs": ["Sustain", "Level"]
+    },
+    {
+        "name": "Dist Fuzz",
+        "knobs": ["Sustain", "Level", "Clipping"]
+    },
+    {
+        "name": "Auto Wah",
+        "knobs": ["Type", "Wow", "Sense"]
+    },
+    {
+        "name": "Touch Wah",
+        "knobs": ["Type", "Wow", "Sense"]
+    },
+    {
+        "name": "Envelope Filter",
+        "knobs": ["Type", "Wow", "Sense"]
+    },
+    {
+        "name": "Talk Wah",
+        "knobs": ["Type", "Sense"]
+    }
+]

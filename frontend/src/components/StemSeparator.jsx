@@ -24,6 +24,37 @@ export default function StemSeparator({ onJobIdChange }) {
   const [separationComplete, setSeparationComplete] = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
 
+  // Mute & Solo states for each track
+  const [mutedStems, setMutedStems] = useState({
+    vocals: false,
+    guitar: false,
+    drums: false,
+    bass: false,
+    piano: false,
+    other: false
+  })
+  const [soloedStems, setSoloedStems] = useState({
+    vocals: false,
+    guitar: false,
+    drums: false,
+    bass: false,
+    piano: false,
+    other: false
+  })
+  const [stemVolumes, setStemVolumes] = useState({
+    vocals: 0.8,
+    guitar: 0.8,
+    drums: 0.8,
+    bass: 0.8,
+    piano: 0.8,
+    other: 0.8
+  })
+
+  // Loading stems for Web Audio
+  const [loadingStems, setLoadingStems] = useState(false)
+  const [loadingStemsProgress, setLoadingStemsProgress] = useState(0)
+
+
   // Download format preference for all-stems ZIP
   const [downloadFormat, setDownloadFormat] = useState('mp3')
 
@@ -37,80 +68,180 @@ export default function StemSeparator({ onJobIdChange }) {
   const audioCtxRef = useRef(null)
   const sourceNodeRef = useRef(null)
   const audioBufferRef = useRef(null)
+  const abortControllerRef = useRef(null)
 
   // Global stems playback refs and states
-  const audioElementsRef = useRef({})
+  const stemBuffersRef = useRef({})
+  const stemSourcesRef = useRef({})
+  const stemGainsRef = useRef({})
+  const startTimeRef = useRef(0)
+  const offsetTimeRef = useRef(0)
+  const animFrameRef = useRef(null)
+
   const [globalPlaying, setGlobalPlaying] = useState(false)
   const [globalTime, setGlobalTime] = useState(0)
   const [globalDuration, setGlobalDuration] = useState(0)
 
-  // Synchronization effect for playing multiple audio elements in sync
+  // Load buffers when separation is complete
   useEffect(() => {
-    let animFrame
+    if (stemResult) {
+      loadStemBuffers(stemResult.stems)
+    } else {
+      stemBuffersRef.current = {}
+      setLoadingStems(false)
+    }
+  }, [stemResult])
+
+  const loadStemBuffers = async (stems) => {
+    setLoadingStems(true)
+    setLoadingStemsProgress(0)
+    const ctx = audioCtxRef.current || new (window.AudioContext || window.webkitAudioContext)()
+    audioCtxRef.current = ctx
+    
+    const names = Object.keys(stems)
+    let loaded = 0
+    
+    try {
+      await Promise.all(names.map(async (name) => {
+        const url = `http://localhost:8000${stems[name]}`
+        const response = await axios.get(url, { responseType: 'arraybuffer' })
+        const buffer = await ctx.decodeAudioData(response.data)
+        stemBuffersRef.current[name] = buffer
+        loaded++
+        setLoadingStemsProgress(loaded / names.length)
+      }))
+      
+      if (names.length > 0) {
+        setGlobalDuration(stemBuffersRef.current[names[0]].duration)
+      }
+    } catch (err) {
+      console.error('Error loading stem buffers', err)
+      setError('Failed to load separated stems for playback.')
+    }
+    setLoadingStems(false)
+  }
+
+  // Master UI transport loop
+  useEffect(() => {
     const updateProgress = () => {
-      const audios = Object.values(audioElementsRef.current).filter(Boolean)
-      if (audios.length === 0) {
-        setGlobalPlaying(false)
-        return
-      }
-
-      const playingAudio = audios.find(a => !a.paused)
-      if (playingAudio) {
-        const leadTime = playingAudio.currentTime
-        setGlobalTime(leadTime)
-
-        // Sync duration dynamically
-        const dur = audios.find(a => a.duration && !isNaN(a.duration))?.duration
-        if (dur) setGlobalDuration(dur)
-
-        // Prevent drift by aligning other playing tracks to the leader's currentTime
-        audios.forEach(aud => {
-          if (!aud.paused && Math.abs(aud.currentTime - leadTime) > 0.05) {
-            aud.currentTime = leadTime
-          }
-        })
-      } else {
-        if (audios.every(a => a.paused)) {
-          setGlobalPlaying(false)
+      if (globalPlaying && audioCtxRef.current) {
+        let current = audioCtxRef.current.currentTime - startTimeRef.current + offsetTimeRef.current
+        if (current >= globalDuration && globalDuration > 0) {
+          current = 0
+          pauseAll()
         }
+        setGlobalTime(current)
+        animFrameRef.current = requestAnimationFrame(updateProgress)
       }
-      animFrame = requestAnimationFrame(updateProgress)
     }
 
     if (globalPlaying) {
-      animFrame = requestAnimationFrame(updateProgress)
+      animFrameRef.current = requestAnimationFrame(updateProgress)
     }
-    return () => cancelAnimationFrame(animFrame)
-  }, [globalPlaying])
+    return () => cancelAnimationFrame(animFrameRef.current)
+  }, [globalPlaying, globalDuration])
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // Apply volume/mute/solo dynamically
+  useEffect(() => {
+    const hasAnySolo = Object.values(soloedStems).some(v => v)
+    const ctx = audioCtxRef.current
+    if (!ctx) return
+
+    Object.keys(stemGainsRef.current).forEach(name => {
+      const gainNode = stemGainsRef.current[name]
+      if (gainNode) {
+        const isMuted = mutedStems[name] || (hasAnySolo && !soloedStems[name])
+        gainNode.gain.setTargetAtTime(
+          isMuted ? 0 : stemVolumes[name], 
+          ctx.currentTime, 
+          0.015
+        )
+      }
+    })
+  }, [mutedStems, soloedStems, stemVolumes])
+
+  // ── Transport Handlers ────────────────────────────────────────────────────
+
+  const playAll = (offset) => {
+    const ctx = audioCtxRef.current
+    if (!ctx) return
+    if (ctx.state === 'suspended') ctx.resume()
+    
+    pauseAll() // Ensure clean state
+    
+    const names = Object.keys(stemBuffersRef.current)
+    const hasAnySolo = Object.values(soloedStems).some(v => v)
+    
+    names.forEach(name => {
+      const source = ctx.createBufferSource()
+      const gainNode = ctx.createGain()
+      
+      source.buffer = stemBuffersRef.current[name]
+      
+      const isMuted = mutedStems[name] || (hasAnySolo && !soloedStems[name])
+      gainNode.gain.value = isMuted ? 0 : stemVolumes[name]
+      
+      source.connect(gainNode)
+      gainNode.connect(ctx.destination)
+      
+      source.start(0, offset)
+      stemSourcesRef.current[name] = source
+      stemGainsRef.current[name] = gainNode
+    })
+    
+    startTimeRef.current = ctx.currentTime
+    offsetTimeRef.current = offset
+    setGlobalPlaying(true)
+  }
+
+  const pauseAll = () => {
+    Object.values(stemSourcesRef.current).forEach(source => {
+      try { source.stop() } catch (e) {}
+    })
+    stemSourcesRef.current = {}
+    setGlobalPlaying(false)
+  }
 
   const handleGlobalPlayToggle = () => {
-    const audios = Object.values(audioElementsRef.current).filter(Boolean)
-    if (audios.length === 0) return
-
     if (globalPlaying) {
-      audios.forEach(aud => aud.pause())
-      setGlobalPlaying(false)
+      pauseAll()
+      offsetTimeRef.current = globalTime
     } else {
       stopPreview()
-      const anyEnded = audios.some(aud => aud.ended || aud.currentTime >= aud.duration - 0.1)
-      const targetTime = anyEnded ? 0 : Math.max(...audios.map(a => a.currentTime))
-      audios.forEach(aud => {
-        aud.currentTime = targetTime
-        aud.play().catch(err => console.warn('Failed to play stem:', err))
-      })
-      setGlobalPlaying(true)
+      playAll(offsetTimeRef.current)
     }
   }
 
-  const handleGlobalSeek = (e) => {
-    const time = parseFloat(e.target.value)
+  const handleGlobalSeek = (timeOrEvent) => {
+    const time = typeof timeOrEvent === 'number' ? timeOrEvent : parseFloat(timeOrEvent?.target?.value || 0)
     setGlobalTime(time)
-    Object.values(audioElementsRef.current).filter(Boolean).forEach(aud => {
-      aud.currentTime = time
-    })
+    offsetTimeRef.current = time
+    if (globalPlaying) {
+      playAll(time)
+    }
   }
+
+  const handleMuteToggle = (name) => {
+    setMutedStems(prev => ({
+      ...prev,
+      [name]: !prev[name]
+    }))
+  }
+
+  const handleSoloToggle = (name) => {
+    setSoloedStems(prev => ({
+      ...prev,
+      [name]: !prev[name]
+    }))
+  }
+
+  const handleVolumeChange = (name, volume) => {
+    setStemVolumes(prev => ({
+      ...prev,
+      [name]: volume
+    }))
+  }
+
 
   const onDrop = useCallback((e) => {
     e.preventDefault()
@@ -187,22 +318,40 @@ export default function StemSeparator({ onJobIdChange }) {
     setPendingResult(null)
     setError(null)
 
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     const fd = new FormData()
     fd.append('file', file)
     fd.append('start_sec', String(startSec))
     fd.append('end_sec', String(endSec))
 
     try {
-      const res = await axios.post('http://localhost:8000/separate', fd, { timeout: 300000 })
+      const res = await axios.post('http://localhost:8000/separate', fd, { 
+        timeout: 300000,
+        signal: controller.signal
+      })
       setPendingResult(res.data)
       setSeparationComplete(true)
       if (onJobIdChange) {
         onJobIdChange(res.data.job_id)
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Separation failed. Please check if the backend is running.')
+      if (axios.isCancel(err) || err.name === 'CanceledError') {
+        console.log('Separation task was canceled.')
+      } else {
+        setError(err.response?.data?.detail || 'Separation failed. Please check if the backend is running.')
+      }
       setSeparating(false)
     }
+  }
+
+  const handleCancelSeparate = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setSeparating(false)
   }
 
   const resetState = () => {
@@ -214,13 +363,20 @@ export default function StemSeparator({ onJobIdChange }) {
     setStartSec(0)
     setEndSec(30)
     audioBufferRef.current = null
-    setGlobalPlaying(false)
+    
+    pauseAll()
+    stemBuffersRef.current = {}
     setGlobalTime(0)
     setGlobalDuration(0)
-    audioElementsRef.current = {}
+    offsetTimeRef.current = 0
+    
     setSeparationComplete(false)
     setPendingResult(null)
+    setMutedStems({ vocals: false, guitar: false, drums: false, bass: false, piano: false, other: false })
+    setSoloedStems({ vocals: false, guitar: false, drums: false, bass: false, piano: false, other: false })
+    setStemVolumes({ vocals: 0.8, guitar: 0.8, drums: 0.8, bass: 0.8, piano: 0.8, other: 0.8 })
   }
+
 
   // Cleanup on unmount
   useEffect(() => {
@@ -247,7 +403,7 @@ export default function StemSeparator({ onJobIdChange }) {
 
       <main className="main-content">
         {separating && (
-          <div className="loading-overlay">
+          <div className="loading-overlay" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <SeparationLoader
               isComplete={separationComplete}
               onFinish={() => {
@@ -257,6 +413,13 @@ export default function StemSeparator({ onJobIdChange }) {
                 setPendingResult(null)
               }}
             />
+            <button 
+              onClick={handleCancelSeparate}
+              className="reset-btn" 
+              style={{ maxWidth: '200px', marginTop: '24px' }}
+            >
+              Stop Task ⏹️
+            </button>
           </div>
         )}
 
@@ -282,7 +445,15 @@ export default function StemSeparator({ onJobIdChange }) {
           </div>
         )}
 
-        {!separating && stemResult && (
+        {!separating && stemResult && loadingStems && (
+          <div className="loading-overlay" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '50vh', justifyContent: 'center' }}>
+            <div className="loader-spinner" style={{ marginBottom: '1rem', width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid #38bdf8', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Loading Stems for Playback...</h3>
+            <p style={{ color: 'var(--text-muted)' }}>{Math.round(loadingStemsProgress * 100)}%</p>
+          </div>
+        )}
+
+        {!separating && stemResult && !loadingStems && (
           <StemsPanel
             stemResult={stemResult}
             globalPlaying={globalPlaying}
@@ -292,15 +463,15 @@ export default function StemSeparator({ onJobIdChange }) {
             onPlayToggle={handleGlobalPlayToggle}
             onSeek={handleGlobalSeek}
             onFormatChange={setDownloadFormat}
-            registerAudio={(name, el) => {
-              if (el) {
-                audioElementsRef.current[name] = el
-              } else {
-                delete audioElementsRef.current[name]
-              }
-            }}
+            mutedStems={mutedStems}
+            soloedStems={soloedStems}
+            stemVolumes={stemVolumes}
+            onMuteToggle={handleMuteToggle}
+            onSoloToggle={handleSoloToggle}
+            onVolumeChange={handleVolumeChange}
           />
         )}
+
 
         {!separating && !file && <EmptyState />}
       </main>

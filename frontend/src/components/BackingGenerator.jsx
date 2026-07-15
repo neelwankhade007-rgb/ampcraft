@@ -1,132 +1,251 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import axios from 'axios'
-import '../index.css'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Guitar, Music2, Drum, Piano, Mic2, Download, RotateCcw, Waves } from 'lucide-react'
+import RegionSelector from './RegionSelector'
+import SeparationLoader from './SeparationLoader'
 import BackingPlayer from './BackingPlayer'
 
 const BASE_URL = 'http://localhost:8000'
 
-export default function BackingGenerator({ jobId }) {
-  const [backingType, setBackingType] = useState('guitar')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [result, setResult] = useState(null)
+const PRESETS = [
+  {
+    id: 'guitar',
+    name: 'Guitar',
+    desc: 'Mute guitar, keep everything else',
+    icon: Guitar,
+  },
+  {
+    id: 'bass',
+    name: 'Bass',
+    desc: 'Backing without bass line',
+    icon: Waves,
+  },
+  {
+    id: 'drums',
+    name: 'Drums',
+    desc: 'Drumless practice track',
+    icon: Drum,
+  },
+  {
+    id: 'piano',
+    name: 'Piano',
+    desc: 'Remove piano from the mix',
+    icon: Piano,
+  },
+  {
+    id: 'karaoke',
+    name: 'Karaoke',
+    desc: 'Vocal-free instrumental',
+    icon: Mic2,
+  },
+]
+
+export default function BackingGenerator({
+  // Shared audio state from App
+  file,
+  audioDuration,
+  startSec,
+  endSec,
+  previewPlaying,
+  onStartChange,
+  onEndChange,
+  onPlay,
+  onStop,
+  // Panel mode callback so WorkspacePanel updates
+  onPanelModeChange,
+  onProcessingProgress,
+  onProcessingStage,
+  onAbortRef,
+}) {
+  const [backingType,        setBackingType]        = useState('guitar')
+  const [generating,         setGenerating]         = useState(false)
+  const [result,             setResult]             = useState(null)
+  const [error,              setError]              = useState(null)
+  const [generationComplete, setGenerationComplete] = useState(false)
+  const [pendingResult,      setPendingResult]      = useState(null)
 
   const handleGenerate = async () => {
-    if (!jobId) {
-      setError('Please separate stems first under the Stem Separator tab.')
+    if (endSec - startSec < 1.0) {
+      setError('Select at least 1 second of audio.')
       return
     }
-    setLoading(true)
+    setGenerating(true)
+    setGenerationComplete(false)
+    setPendingResult(null)
     setError(null)
-    setResult(null)
+    if (onPanelModeChange) onPanelModeChange('processing')
+
+    const controller = new AbortController()
+    if (onAbortRef) onAbortRef.current = controller
+
+    const fd = new FormData()
+    fd.append('file',         file)
+    fd.append('backing_type', backingType)
+    fd.append('start_sec',    String(startSec))
+    fd.append('end_sec',      String(endSec))
 
     try {
-      const response = await axios.post(`${BASE_URL}/generate-backing`, {
-        job_id: jobId,
-        backing_type: backingType
+      const response = await axios.post(`${BASE_URL}/generate-backing`, fd, {
+        timeout: 300000,
+        signal:  controller.signal,
       })
-      setResult(response.data)
+      setPendingResult(response.data)
+      setGenerationComplete(true)
     } catch (err) {
-      setError(
-        err.response?.data?.detail || 
-        'Backing generation failed. Please check if the backend is running.'
-      )
-    } finally {
-      setLoading(false)
+      if (axios.isCancel(err) || err.name === 'CanceledError') {
+        // cancelled by user
+      } else {
+        setError(err.response?.data?.detail || 'Backing generation failed.')
+        if (onPanelModeChange) onPanelModeChange('file')
+      }
+      setGenerating(false)
     }
   }
 
-  // Empty State when no active jobId exists
-  if (!jobId) {
+  const handleReset = () => {
+    setResult(null)
+    setError(null)
+    setGenerationComplete(false)
+    setPendingResult(null)
+    if (onPanelModeChange) onPanelModeChange('file')
+  }
+
+  // ── Generating ──
+  if (generating) {
     return (
-      <div className="empty-state" style={{ padding: '48px 24px' }}>
-        <div className="empty-state-graphic">🎸</div>
-        <h3>No Active Track Found</h3>
-        <p>Please upload and separate a track first to generate custom backing tracks.</p>
-      </div>
+      <SeparationLoader
+        isBacking
+        isComplete={generationComplete}
+        onFinish={() => {
+          setResult(pendingResult)
+          setGenerating(false)
+          setGenerationComplete(false)
+          setPendingResult(null)
+          if (onPanelModeChange) onPanelModeChange('backing-result')
+        }}
+      />
     )
   }
 
-  // Active State when jobId exists
-  return (
-    <div className="region-selector" style={{ marginTop: '24px' }}>
-      <div className="canvas-header" style={{ marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '4px' }}>Backing Generator</h2>
-        <p>Generate backing tracks by muting a selected instrument.</p>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-            Backing Type
-          </label>
-          <select
-            value={backingType}
-            onChange={(e) => setBackingType(e.target.value)}
-            disabled={loading}
-            className="rs-input"
-            style={{ width: '100%', height: '40px', padding: '0 12px' }}
-          >
-            <option value="guitar">Guitar Backing</option>
-            <option value="bass">Bass Backing</option>
-            <option value="drums">Drums Backing</option>
-            <option value="piano">Piano Backing</option>
-            <option value="karaoke">Karaoke</option>
-          </select>
+  // ── Result ──
+  if (result) {
+    return (
+      <motion.div
+        className="configure-workspace"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="workspace-header">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div className="workspace-title">Backing Track Ready</div>
+              <div className="workspace-sub">
+                Preset: <strong style={{ color: 'var(--accent)', textTransform: 'capitalize' }}>{result.backing_type}</strong>
+              </div>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={handleReset}>
+              <RotateCcw size={12} />
+              New Backing
+            </button>
+          </div>
         </div>
 
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className="rs-btn-separate"
-          style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: loading ? 0.7 : 1 }}
-        >
-          {loading ? 'Generating...' : 'Generate Backing'}
-        </button>
+        <div className="workspace-content">
+          <div className="backing-result">
+            <BackingPlayer src={`${BASE_URL}${result.mp3_url}`} />
 
-        {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', marginTop: '8px' }}>
-            <span className="spinner" style={{ borderColor: 'rgba(251, 191, 36, 0.2)', borderTopColor: 'var(--accent)' }}></span>
-            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Generating backing track...</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <a
+                href={`${BASE_URL}/download-backing/${result.job_id}/${result.mp3_url.split('/').pop()}`}
+                className="btn btn-secondary btn-sm"
+                style={{ flex: 1, textDecoration: 'none', justifyContent: 'center' }}
+              >
+                <Download size={12} />
+                MP3
+              </a>
+              <a
+                href={`${BASE_URL}/download-backing/${result.job_id}/${result.wav_url.split('/').pop()}`}
+                className="btn btn-primary btn-sm"
+                style={{ flex: 1, textDecoration: 'none', justifyContent: 'center' }}
+              >
+                <Download size={12} />
+                WAV
+              </a>
+            </div>
           </div>
-        )}
+        </div>
+      </motion.div>
+    )
+  }
+
+  // ── Configure ──
+  return (
+    <motion.div
+      className="configure-workspace"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="workspace-header">
+        <div className="workspace-title">Backing Maker</div>
+        <div className="workspace-sub">Select an instrument preset and region to generate a custom backing track.</div>
+      </div>
+
+      <div className="workspace-content">
+        {/* Preset Cards */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>
+            Backing Preset
+          </div>
+          <div className="preset-grid">
+            {PRESETS.map((preset) => {
+              const Icon = preset.icon
+              return (
+                <motion.button
+                  key={preset.id}
+                  className={`preset-card ${backingType === preset.id ? 'selected' : ''}`}
+                  onClick={() => setBackingType(preset.id)}
+                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ y: -2 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                  style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center', width: '100%' }}
+                >
+                  <div className="preset-icon">
+                    <Icon size={18} />
+                  </div>
+                  <span className="preset-name">{preset.name}</span>
+                  <span className="preset-desc">{preset.desc}</span>
+                </motion.button>
+              )
+            })}
+          </div>
+        </div>
 
         {error && (
-          <div className="error-msg" style={{ marginTop: '8px' }}>
+          <div className="error-bar">
             {error}
           </div>
         )}
 
-        {result && result.success && (
-          <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.95rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>✅</span> Backing Generated
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <BackingPlayer src={`${BASE_URL}${result.mp3_url}`} />
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                {/* Download buttons route through the force-download endpoint */}
-                <a
-                  href={`${BASE_URL}/download-backing/${result.job_id}/${result.mp3_url.split('/').pop()}`}
-                  className="rs-btn-play"
-                  style={{ flex: 1, textAlign: 'center', display: 'inline-block', textDecoration: 'none', padding: '10px 0' }}
-                >
-                  Download MP3
-                </a>
-                <a
-                  href={`${BASE_URL}/download-backing/${result.job_id}/${result.wav_url.split('/').pop()}`}
-                  className="rs-btn-play"
-                  style={{ flex: 1, textAlign: 'center', display: 'inline-block', textDecoration: 'none', padding: '10px 0' }}
-                >
-                  Download WAV
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Region Selector */}
+        <RegionSelector
+          duration={audioDuration}
+          startSec={startSec}
+          endSec={endSec}
+          onStartChange={onStartChange}
+          onEndChange={onEndChange}
+          onPlay={onPlay}
+          onStop={onStop}
+          onSeparate={handleGenerate}
+          playing={previewPlaying}
+          loading={generating}
+          fileName={file?.name}
+          buttonLabel="Generate Backing"
+          buttonIcon={<Music2 size={13} />}
+        />
       </div>
-    </div>
+    </motion.div>
   )
 }

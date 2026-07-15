@@ -1,0 +1,58 @@
+[
+    {
+        "name": "JC120",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "DR112",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "TR212",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "HIWIRE412",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "CALI112",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "A112",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "GB412",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "M1960AX",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "M1960AV",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "M1960TV",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "SL0412",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "FIREMAN412",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "RECT412",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    },
+    {
+        "name": "DIE412",
+        "knobs": ["Level", "Low Cut", "High Cut"]
+    }
+]

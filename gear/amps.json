@@ -1,0 +1,86 @@
+[
+    {
+        "name": "Jazz Clean",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Master", "Bright"]
+    },
+    {
+        "name": "Deluxe Rvb",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Master"]
+    },
+    {
+        "name": "Bass Mate",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Tweed",
+        "knobs": ["Gain", "Tone", "Master"]
+    },
+    {
+        "name": "Hiwire",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Cali Crunch",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Class A30",
+        "knobs": ["Gain", "Bass", "Treble", "Cut", "Master"]
+    },
+    {
+        "name": "Plexi 100",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Plexi 45",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Brit 800",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "1987 X 50",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "SLO 100",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Fireman",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Dual Rect",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Die VH4",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "ML 20 HB",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Cut", "Master"]
+    },
+    {
+        "name": "Super Reverb",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Master", "Bright"]
+    },
+    {
+        "name": "AC30",
+        "knobs": ["Gain", "Bass", "Mid Freq", "Middle", "Treble", "Master"]
+    },
+    {
+        "name": "MLD",
+        "knobs": ["Gain", "Bass", "Mid Freq", "Middle", "Treble", "Presence", "Master"]
+    },
+    {
+        "name": "Optima Air",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Master"]
+    },
+    {
+        "name": "Stageman",
+        "knobs": ["Gain", "Bass", "Middle", "Treble", "Master"]
+    }
+]

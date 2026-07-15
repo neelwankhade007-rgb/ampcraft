@@ -1,0 +1,9 @@
+[
+    {
+        "name": "Noise Gate",
+        "knobs": [
+            "Output",
+            "Sensitivity"
+        ]
+    }
+]

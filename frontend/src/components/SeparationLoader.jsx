@@ -1,67 +1,50 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
+import { CheckCircle2 } from 'lucide-react'
 
-export default function SeparationLoader({ isComplete, onFinish }) {
-  const [currentStage, setCurrentStage] = useState(0)
-  const [overallProgress, setOverallProgress] = useState(0)
-  const overallProgressRef = useRef(0)
-  overallProgressRef.current = overallProgress
+const RADIUS = 52
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+
+export default function SeparationLoader({ isComplete, onFinish, isBacking = false }) {
+  const [currentStage, setCurrentStage]         = useState(0)
+  const [overallProgress, setOverallProgress]   = useState(0)
+  const overallProgressRef                       = useRef(0)
+  overallProgressRef.current                     = overallProgress
 
   useEffect(() => {
-    let startTime = Date.now()
-    let completedTime = null
-    let completedStartProgress = 0
+    let startTime       = Date.now()
+    let completedTime   = null
+    let completedStart  = 0
 
-    let interval = setInterval(() => {
+    const interval = setInterval(() => {
       if (isComplete) {
         if (completedTime === null) {
-          completedTime = Date.now()
-          completedStartProgress = overallProgressRef.current
+          completedTime  = Date.now()
+          completedStart = overallProgressRef.current
         }
-        const elapsedSinceComplete = (Date.now() - completedTime) / 1000 // seconds
-        // Fast transition to 100 in 0.6 seconds
-        const pct = Math.min(1, elapsedSinceComplete / 0.6)
-        const currentProg = Math.round(completedStartProgress + (100 - completedStartProgress) * pct)
-
-        setOverallProgress(currentProg)
-        if (currentProg >= 100) {
-          clearInterval(interval)
-          setTimeout(() => {
-            onFinish()
-          }, 300)
-        }
-
+        const elapsed = (Date.now() - completedTime) / 1000
+        const pct     = Math.min(1, elapsed / 0.6)
+        const prog    = Math.round(completedStart + (100 - completedStart) * pct)
+        setOverallProgress(prog)
         if (pct > 0.2) setCurrentStage(3)
         if (pct > 0.6) setCurrentStage(4)
+        if (prog >= 100) {
+          clearInterval(interval)
+          setTimeout(onFinish, 300)
+        }
         return
       }
 
-      const elapsed = (Date.now() - startTime) / 1000 // seconds
+      const elapsed = (Date.now() - startTime) / 1000
+      let stage = 0, prog = 0
 
-      let stage = 0
-      let prog = 0
-
-      if (elapsed < 3) {
-        // Stage 0: Loading Audio (0 to 3s)
-        stage = 0
-        prog = (elapsed / 3) * 15
-      } else if (elapsed < 8) {
-        // Stage 1: Analyzing Mix (3s to 8s)
-        stage = 1
-        prog = 15 + ((elapsed - 3) / 5) * 15
-      } else if (elapsed < 38) {
-        // Stage 2: Separating Instruments (8s to 38s)
-        stage = 2
-        prog = 30 + ((elapsed - 8) / 30) * 45
-      } else if (elapsed < 48) {
-        // Stage 3: Rendering Stems (38s to 48s)
-        stage = 3
-        prog = 75 + ((elapsed - 38) / 10) * 15
-      } else {
-        // Stage 4: Finalizing Output (48s+)
+      if      (elapsed < 3)  { stage = 0; prog = (elapsed / 3) * 15 }
+      else if (elapsed < 8)  { stage = 1; prog = 15 + ((elapsed - 3)  / 5)  * 15 }
+      else if (elapsed < 38) { stage = 2; prog = 30 + ((elapsed - 8)  / 30) * 45 }
+      else if (elapsed < 48) { stage = 3; prog = 75 + ((elapsed - 38) / 10) * 15 }
+      else {
         stage = 4
-        const extraTime = elapsed - 48
-        const rate = 1 - Math.exp(-extraTime / 20)
-        prog = 90 + rate * 8
+        prog  = 90 + (1 - Math.exp(-(elapsed - 48) / 20)) * 8
       }
 
       setCurrentStage(stage)
@@ -71,54 +54,95 @@ export default function SeparationLoader({ isComplete, onFinish }) {
     return () => clearInterval(interval)
   }, [isComplete, onFinish])
 
-  const STAGES = [
-    { title: 'Loading Audio', subtitle: 'Reading audio data...' },
-    { title: 'Analyzing Mix', subtitle: 'Identifying track components...' },
-    { title: 'Separating Instruments', subtitle: 'Creating individual stem tracks...' },
-    { title: 'Rendering Stems', subtitle: 'Preparing high-quality outputs...' },
-    { title: 'Finalizing Output', subtitle: 'Almost done...' }
+  const STAGES = isBacking ? [
+    { title: 'Loading Audio',           sub: 'Reading audio data…' },
+    { title: 'Analyzing Mix',           sub: 'Locating instruments…' },
+    { title: 'Separating Instruments',  sub: 'Running Demucs AI…' },
+    { title: 'Mixing Backing Track',    sub: 'Summing stems…' },
+    { title: 'Finalizing Output',       sub: 'Encoding MP3 & WAV…' },
+  ] : [
+    { title: 'Loading Audio',           sub: 'Reading audio data…' },
+    { title: 'Analyzing Mix',           sub: 'Identifying components…' },
+    { title: 'Separating Instruments',  sub: 'Running Demucs AI…' },
+    { title: 'Rendering Stems',         sub: 'Preparing outputs…' },
+    { title: 'Finalizing Output',       sub: 'Almost done…' },
   ]
 
+  const strokeOffset = CIRCUMFERENCE - (overallProgress / 100) * CIRCUMFERENCE
+
   return (
-    <div className="daw-loader-container">
-      <div className="daw-loader-header">
-        <span className="daw-loader-percentage">{overallProgress}%</span>
-        <h3 className="daw-loader-title">Processing Mix</h3>
-        <p className="daw-loader-subtitle">Please wait while Demucs AI processes your request...</p>
+    <motion.div
+      className="processing-workspace"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Circular progress ring */}
+      <div className="processing-ring-wrap">
+        <svg
+          className="processing-ring-svg"
+          width="140"
+          height="140"
+          viewBox="0 0 140 140"
+        >
+          <circle
+            className="processing-ring-track"
+            cx="70" cy="70"
+            r={RADIUS}
+          />
+          <circle
+            className="processing-ring-fill"
+            cx="70" cy="70"
+            r={RADIUS}
+            strokeDasharray={CIRCUMFERENCE}
+            strokeDashoffset={strokeOffset}
+          />
+        </svg>
+        <div className="processing-ring-center">
+          <span className="processing-pct">{overallProgress}%</span>
+        </div>
       </div>
 
-      <div className="daw-progress-bar-track">
-        <div className="daw-progress-bar-fill" style={{ width: `${overallProgress}%` }} />
+      {/* Title + subtitle */}
+      <div className="processing-info">
+        <h2 className="processing-title">
+          {isBacking ? 'Generating Backing Track' : 'Separating Stems'}
+        </h2>
+        <p className="processing-subtitle">
+          {STAGES[currentStage]?.sub || 'Please wait…'}
+        </p>
       </div>
 
-      <div className="daw-stages-list">
+      {/* Stage checklist */}
+      <div className="processing-stages">
         {STAGES.map((stage, idx) => {
           let stateClass = 'pending'
-          if (idx < currentStage) stateClass = 'completed'
-          else if (idx === currentStage) stateClass = 'active'
+          if (idx < currentStage)  stateClass = 'completed'
+          if (idx === currentStage) stateClass = 'active'
 
           return (
-            <div key={idx} className={`daw-stage-item ${stateClass}`}>
-              <div className="daw-stage-node">
-                {idx < currentStage ? (
-                  <svg className="check-icon" viewBox="0 0 24 24" width="12" fill="none" stroke="currentColor" strokeWidth="3">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  <span className="node-number">{idx + 1}</span>
+            <motion.div
+              key={idx}
+              className={`processing-stage ${stateClass}`}
+              animate={{ opacity: stateClass === 'pending' ? 0.3 : stateClass === 'completed' ? 0.6 : 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="processing-stage-node">
+                {stateClass === 'completed'
+                  ? <CheckCircle2 size={11} />
+                  : idx + 1
+                }
+              </div>
+              <div className="processing-stage-text">
+                <span className="processing-stage-name">{stage.title}</span>
+                {stateClass === 'active' && (
+                  <span className="processing-stage-sub">{stage.sub}</span>
                 )}
               </div>
-              <div className="daw-stage-content">
-                <div className="daw-stage-title-row">
-                  <span className="daw-stage-prefix">Stage {idx + 1}</span>
-                  <span className="daw-stage-title">{stage.title}</span>
-                </div>
-                <span className="daw-stage-subtitle">{stage.subtitle}</span>
-              </div>
-            </div>
+            </motion.div>
           )
         })}
       </div>
-    </div>
+    </motion.div>
   )
 }

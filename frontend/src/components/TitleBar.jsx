@@ -13,7 +13,7 @@ export default function TitleBar({ activeModule, onModuleChange, file }) {
     <header className="titlebar">
       {/* Brand */}
       <div className="titlebar-brand">
-        <Music2 size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        <img src="/logo.png" alt="AmpCraft logo" className="brand-logo" style={{ height: '24px', width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
         <span className="brand-wordmark">AmpCraft</span>
         <span className="brand-badge">Studio</span>
       </div>

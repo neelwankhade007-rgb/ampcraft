@@ -2,6 +2,8 @@
 
 > Separate audio stems, build custom backing tracks, and prepare for ultimate tone modeling. Powered by Meta's Demucs AI model (`htdemucs_6s`) and FastAPI.
 
+🌐 **Live Demo (Frontend):** [https://ampcraft.netlify.app/](https://ampcraft.netlify.app/)
+
 ---
 
 ## 🚀 Key Features

@@ -1,22 +1,17 @@
 import React from 'react'
-import { Play, Pause, Download } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { formatTime } from '../utils/formatTime'
-import WaveformPlayer from './WaveformPlayer'
 
 export default function GlobalMixer({
-  globalPlaying,
-  globalTime,
   globalDuration,
   stemResult,
   downloadFormat,
-  onPlayToggle,
-  onSeek,
   onFormatChange,
 }) {
   return (
     <div className="master-transport">
       {/* Top row: file info + time + download */}
-      <div className="master-transport-top">
+      <div className="master-transport-top" style={{ borderBottom: 'none', paddingBottom: 0 }}>
         <div className="master-info">
           <div className="master-filename">
             {stemResult.original_filename || 'Master Mix'}
@@ -53,30 +48,6 @@ export default function GlobalMixer({
             </a>
           )}
         </div>
-      </div>
-
-      {/* Transport controls + waveform */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button
-          className={`btn btn-primary btn-icon ${globalPlaying ? 'playing' : ''}`}
-          onClick={onPlayToggle}
-          style={globalPlaying ? { background: 'rgba(255,255,255,0.1)', color: 'var(--text)' } : {}}
-          title={globalPlaying ? 'Pause' : 'Play All'}
-        >
-          {globalPlaying ? <Pause size={15} /> : <Play size={15} />}
-        </button>
-
-        <WaveformPlayer
-          currentTime={globalTime}
-          duration={globalDuration}
-          onSeek={onSeek}
-          fileName={stemResult.original_filename}
-          height={52}
-        />
-
-        <span className="master-time">
-          {formatTime(globalTime)} / {formatTime(globalDuration || 0)}
-        </span>
       </div>
     </div>
   )

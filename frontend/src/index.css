@@ -1593,3 +1593,338 @@ body {
     gap: 0;
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   WORKSPACE PANEL METADATA STYLES
+   ══════════════════════════════════════════════════════════ */
+.wp-metadata-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+}
+
+.wp-metadata-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wp-metadata-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-3);
+  letter-spacing: 0.05em;
+}
+
+.wp-metadata-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.wp-metadata-value.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wp-metadata-value.status-no-file {
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.wp-metadata-value.status-ready {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.wp-metadata-value.status-processing {
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.wp-metadata-value.status-completed {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FORMAT DROPDOWN & BACKING DOWNLOAD CONTROL
+   ══════════════════════════════════════════════════════════ */
+.backing-download-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  margin-top: 16px;
+}
+
+@media (max-width: 500px) {
+  .backing-download-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.format-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.format-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border-md);
+  color: var(--text);
+  padding: 0 16px;
+  height: 42px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--t-base), box-shadow var(--t-base);
+  min-width: 100px;
+}
+
+.format-dropdown-trigger:hover,
+.format-dropdown-trigger:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  outline: none;
+}
+
+.format-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border-md);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 120px;
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.format-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  width: 100%;
+}
+
+.format-dropdown-item:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+.format-dropdown-item.selected {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.format-dropdown-item-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+/* Primary Download Button style */
+.btn-download-backing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 24px;
+  height: 42px;
+  flex: 1;
+  transition: background var(--t-base), transform var(--t-fast), box-shadow var(--t-base);
+}
+
+.btn-download-backing:hover:not(:disabled) {
+  background: #f5c842;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.btn-download-backing:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-download-backing:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════
+   STUDIO TIMELINE & SHARABLE PLAYBACK CONTROLS
+   ══════════════════════════════════════════════════════════ */
+.studio-timeline {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.st-track-wrap {
+  position: relative;
+  height: 64px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: visible;
+  cursor: pointer;
+}
+
+.st-waveform {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 1px;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.st-bar {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border-radius: 1px;
+  min-width: 2px;
+  height: 60%;
+  transition: background var(--t-fast);
+}
+
+.st-bar.highlighted {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.st-bar.active {
+  background: var(--accent);
+}
+
+.st-selection-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(251, 191, 36, 0.04);
+  border-left: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+  z-index: 2;
+  cursor: grab;
+}
+
+.st-selection-overlay:active {
+  cursor: grabbing;
+}
+
+.st-handle {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 14px;
+  margin-left: -7px;
+  z-index: 3;
+  cursor: ew-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.st-handle-grip {
+  width: 4px;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.st-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ff453a;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.st-playhead-cap {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  background: #ff453a;
+  border-radius: 50%;
+}
+
+.st-time-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'SF Mono', monospace;
+  padding: 0 2px;
+  user-select: none;
+}
+
+.st-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.st-play-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.st-time-display {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  font-family: 'SF Mono', monospace;
+}

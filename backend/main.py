@@ -3,6 +3,8 @@ import os
 import io
 import json
 import zipfile
+import asyncio
+import time
 
 # Add the backend directory to sys.path to resolve module imports
 # when running from the root directory (e.g. uvicorn backend.main:app)
@@ -15,7 +17,7 @@ import shutil, uuid
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from stem_separator import separate_stems
-from backing_generator import generate_backing
+from backing_generator import generate_backing, generate_backing_from_existing_stems
 
 app = FastAPI()
 
@@ -34,6 +36,34 @@ os.makedirs(STEMS_DIR, exist_ok=True)
 
 BACKINGS_DIR = "backings"
 os.makedirs(BACKINGS_DIR, exist_ok=True)
+
+
+async def cleanup_old_files():
+    while True:
+        try:
+            now = time.time()
+            cutoff = now - 30 * 60  # 30 minutes
+            for directory in [STEMS_DIR, BACKINGS_DIR, UPLOAD_DIR]:
+                if not os.path.exists(directory):
+                    continue
+                for item in os.listdir(directory):
+                    item_path = os.path.join(directory, item)
+                    mtime = os.path.getmtime(item_path)
+                    if mtime < cutoff:
+                        if os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                            print(f"Cleaned up old directory: {item_path}")
+                        else:
+                            os.remove(item_path)
+                            print(f"Cleaned up old file: {item_path}")
+        except Exception as e:
+            print(f"Error during file cleanup: {e}")
+        await asyncio.sleep(60)
+
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(cleanup_old_files())
 
 
 class BackingRequest(BaseModel):
@@ -244,6 +274,53 @@ async def generate_backing_endpoint(
             status_code=500,
             detail=str(e)
         )
+
+@app.post("/generate-backing-from-stems")
+async def generate_backing_from_stems_endpoint(
+    job_id: str = Form(...),
+    backing_type: str = Form(...),
+):
+    """
+    Generates a backing track by reusing already-separated stems.
+    Requires a valid stems job_id from a previous /separate call.
+    Skips Demucs entirely — only mixes existing WAV stems.
+    """
+    try:
+        stems_dir = os.path.join(STEMS_DIR, job_id)
+        if not os.path.isdir(stems_dir):
+            raise HTTPException(status_code=404, detail="Stems not found. Run separation first.")
+
+        # Read metadata for the base name
+        meta_path = os.path.join(stems_dir, "meta.json")
+        if os.path.exists(meta_path):
+            with open(meta_path) as f:
+                meta = json.load(f)
+            base_name = meta.get("base_name", job_id)
+        else:
+            base_name = job_id
+
+        backing_job_id = uuid.uuid4().hex[:12]
+
+        res = generate_backing_from_existing_stems(
+            stems_job_id=job_id,
+            backing_type=backing_type,
+            backing_job_id=backing_job_id,
+            base_name=base_name,
+        )
+
+        wav_url = f"/backings/{backing_job_id}/{os.path.basename(res['wav_path'])}"
+        mp3_url = f"/backings/{backing_job_id}/{os.path.basename(res['mp3_path'])}"
+        return {
+            "success": True,
+            "job_id": backing_job_id,
+            "backing_type": backing_type,
+            "wav_url": wav_url,
+            "mp3_url": mp3_url,
+        }
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 

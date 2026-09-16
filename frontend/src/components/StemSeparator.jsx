@@ -42,12 +42,12 @@ export default function StemSeparator({ onJobIdChange }) {
     other: false
   })
   const [stemVolumes, setStemVolumes] = useState({
-    vocals: 0.8,
-    guitar: 0.8,
-    drums: 0.8,
-    bass: 0.8,
-    piano: 0.8,
-    other: 0.8
+    vocals: 1.0,
+    guitar: 1.0,
+    drums: 1.0,
+    bass: 1.0,
+    piano: 1.0,
+    other: 1.0
   })
 
   // Loading stems for Web Audio
@@ -374,7 +374,7 @@ export default function StemSeparator({ onJobIdChange }) {
     setPendingResult(null)
     setMutedStems({ vocals: false, guitar: false, drums: false, bass: false, piano: false, other: false })
     setSoloedStems({ vocals: false, guitar: false, drums: false, bass: false, piano: false, other: false })
-    setStemVolumes({ vocals: 0.8, guitar: 0.8, drums: 0.8, bass: 0.8, piano: 0.8, other: 0.8 })
+    setStemVolumes({ vocals: 1.0, guitar: 1.0, drums: 1.0, bass: 1.0, piano: 1.0, other: 1.0 })
   }
 
 

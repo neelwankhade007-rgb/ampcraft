@@ -6,7 +6,7 @@ from pydub import AudioSegment
 
 BACKING_CONFIGS = {
     "guitar": {
-        "guitar": 0.20,
+        "guitar": 0.05,
         "bass": 1.0,
         "drums": 1.0,
         "piano": 1.0,
@@ -15,7 +15,7 @@ BACKING_CONFIGS = {
     },
     "bass": {
         "guitar": 1.0,
-        "bass": 0.20,
+        "bass": 0.05,
         "drums": 1.0,
         "piano": 1.0,
         "vocals": 1.0,
@@ -24,7 +24,7 @@ BACKING_CONFIGS = {
     "drums": {
         "guitar": 1.0,
         "bass": 1.0,
-        "drums": 0.20,
+        "drums": 0.05,
         "piano": 1.0,
         "vocals": 1.0,
         "other": 1.0
@@ -33,7 +33,7 @@ BACKING_CONFIGS = {
         "guitar": 1.0,
         "bass": 1.0,
         "drums": 1.0,
-        "piano": 0.20,
+        "piano": 0.05,
         "vocals": 1.0,
         "other": 1.0
     },
@@ -42,7 +42,7 @@ BACKING_CONFIGS = {
         "bass": 1.0,
         "drums": 1.0,
         "piano": 1.0,
-        "vocals": 0.0,
+        "vocals": 0.01,
         "other": 1.0
     }
 }
@@ -116,31 +116,22 @@ def mix_stems_to_backing(stems_dir: str, backing_type: str, backing_dir: str, ba
         else:
             mix += scaled_audio
 
-    # Normalize
-    peak = np.max(np.abs(mix))
-    if peak > 1.0:
-        mix = mix / peak
+    # Hard clip to [-1, 1] to prevent out-of-range samples without
+    # altering the intended volume ratios (no peak normalization).
+    mix = np.clip(mix, -1.0, 1.0)
 
-    # Output paths
+    # Output path
     wav_filename = f"{base_name}_{backing_type}_backing.wav"
-    mp3_filename = f"{base_name}_{backing_type}_backing.mp3" 
-    
     wav_path = os.path.join(backing_dir, wav_filename)
-    mp3_path = os.path.join(backing_dir, mp3_filename)
 
     # Save WAV
     sf.write(wav_path, mix, sample_rate)
 
-    # Save MP3
-    AudioSegment.from_wav(wav_path).export(mp3_path, format="mp3", bitrate="320k")
-
     print("\nGenerated:")
     print(wav_path)
-    print(mp3_path)
 
     return {
         "wav_path": wav_path,
-        "mp3_path": mp3_path,
     }
 
 

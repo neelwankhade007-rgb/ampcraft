@@ -1,21 +1,12 @@
-# ── Web server ────────────────────────────────────────────────────────────────
-fastapi
-uvicorn[standard]
-python-multipart
-
-# ── Audio I/O & analysis ──────────────────────────────────────────────────────
-librosa
-soundfile
-numpy
-pydub
-
-# ── Deep learning — stem separation ──────────────────────────────────────────
-# Install PyTorch separately from https://pytorch.org/get-started/locally/
-# to pick the right CUDA/CPU build for your machine. Example (CPU-only):
-#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-torch
-torchaudio
-demucs
-
-# ── Note: ffmpeg is a system dependency, not a pip package ───────────────────
-# Install via: winget install ffmpeg   OR   choco install ffmpeg
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+pydantic>=2.6.0
+demucs>=4.0.0
+librosa>=0.10.1
+soundfile>=0.12.1
+pydub>=0.25.1
+numpy>=1.24.0,<2.0.0
+scipy>=1.11.0
+requests>=2.31.0
+python-dotenv>=1.0.0

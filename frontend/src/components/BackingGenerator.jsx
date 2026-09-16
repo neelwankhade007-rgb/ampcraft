@@ -24,12 +24,15 @@ export default function BackingGenerator({
   hasSelection,
   stemResult,            // existing stems from Separator (if any)
   onStemResult,          // callback to store stems back into project
+  backingResult,         // backing track result from project
+  onBackingResult,       // callback to store backing results back into project
   // Panel mode
   onPanelModeChange,
   onAbortRef,
 }) {
   const [backingType, setBackingType] = useState('guitar')
-  const [result, setResult] = useState(null)
+  const result = backingResult
+  const setResult = onBackingResult
   const [error, setError] = useState(null)
 
   // Separation-phase state (for auto-pipeline)
@@ -47,31 +50,29 @@ export default function BackingGenerator({
 
   const stemsExist = !!stemResult
 
-  const formatUrls = {
-    wav: result?.wav_url,
-    mp3: result?.mp3_url,
-  }
-
   const handleDownload = async () => {
     if (!result) return
-    const url = formatUrls[selectedFormat]
-    if (!url) return
-    
+    const wavFilename = result.wav_url.split('/').pop()
+    const baseWithoutExt = wavFilename.replace(/\.wav$/i, '')
+    const targetFilename = `${baseWithoutExt}.${selectedFormat}`
+    const downloadEndpoint = `${BASE_URL}/download-backing/${result.job_id}/${targetFilename}`
+
     setDownloading(true)
     try {
-      const response = await fetch(`${BASE_URL}${url}`)
+      const response = await fetch(downloadEndpoint)
+      if (!response.ok) throw new Error("Download request failed")
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = downloadUrl
-      const filename = url.split('/').pop() || `${result.backing_type}_backing.${selectedFormat}`
-      a.download = filename
+      a.download = targetFilename
       document.body.appendChild(a)
       a.click()
       a.remove()
       window.URL.revokeObjectURL(downloadUrl)
     } catch (err) {
       console.error("Download failed:", err)
+      setError("Failed to download backing track.")
     } finally {
       setDownloading(false)
     }
@@ -111,6 +112,10 @@ export default function BackingGenerator({
       }
     } else {
       // Auto-pipeline: separate first, then generate backing
+      if (file?.isRestored) {
+        setError('Please upload the original audio file again to separate stems.')
+        return
+      }
       if (endSec - startSec < 1.0) {
         setError('Select at least 1 second of audio.')
         return
@@ -231,7 +236,7 @@ export default function BackingGenerator({
 
         <div className="workspace-content">
           <div className="backing-result">
-            <BackingPlayer src={`${BASE_URL}${result.mp3_url}`} />
+            <BackingPlayer src={`${BASE_URL}${result.wav_url}`} />
 
             <div className="backing-download-row">
               {/* Dropdown Container */}

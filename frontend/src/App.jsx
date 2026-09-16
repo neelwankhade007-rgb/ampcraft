@@ -11,9 +11,11 @@ import SeparationLoader from './components/SeparationLoader'
 import StemsPanel       from './components/StemsPanel'
 import BackingGenerator from './components/BackingGenerator'
 import StudioTimeline   from './components/StudioTimeline'
+import HistoryDrawer    from './components/HistoryDrawer'
 
 import useProject      from './hooks/useProject'
 import useStemMixer    from './hooks/useStemMixer'
+import { useHistory }  from './context/HistoryContext'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App — coordinates active modules, shared timeline, and project playback state
@@ -22,6 +24,7 @@ import useStemMixer    from './hooks/useStemMixer'
 export default function App() {
   const [activeModule, setActiveModule] = useState('separator')
   const [panelMode, setPanelMode] = useState('upload')
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   // ── Project (single source of truth) ────────────────────────────────────────
   const project = useProject()
@@ -29,8 +32,10 @@ export default function App() {
     file, audioDuration, sampleRate, startSec, endSec, hasSelection,
     stemResult, setStemResult, backingResult, setBackingResult,
     stemsExist, audioCtxRef, audioBufferRef,
-    loadFile, clearProject, setStartSec, setEndSec, setHasSelection,
+    loadFile, restoreProject, clearProject, setStartSec, setEndSec, setHasSelection,
   } = project
+
+  const { projects, touchProject, setActiveProjectId } = useHistory()
 
   // ── Stem separation job state ───────────────────────────────────────────────
   const [separating, setSeparating]                 = useState(false)
@@ -44,11 +49,13 @@ export default function App() {
 
   // ── Unified Audio Playback & Mixer (handles raw original preview & stems) ───
   const {
-    mutedStems, soloedStems, stemVolumes,
+    mutedStems, soloedStems, stemVolumes, masterVolume,
     loadingStems, loadingStemsProgress,
     globalPlaying, globalTime, globalDuration,
+    waveformPeaks,
     setMutedStems, setSoloedStems, setStemVolumes,
-    pauseAll, handleGlobalPlayToggle, handleGlobalSeek, resetMixer,
+    handleMasterVolumeChange,
+    handleGlobalPlayToggle, handleRestart, handleGlobalSeek, resetMixer,
   } = useStemMixer(
     audioCtxRef,
     audioBufferRef,
@@ -57,7 +64,8 @@ export default function App() {
     setSeparatorError,
     startSec,
     endSec,
-    hasSelection
+    hasSelection,
+    project.audioBuffer
   )
 
   // ── File handling ───────────────────────────────────────────────────────────
@@ -85,8 +93,34 @@ export default function App() {
     if (e.dataTransfer.files?.[0]) selectFile(e.dataTransfer.files[0])
   }
 
+  // ── Restore Project from History Drawer ─────────────────────────────────────
+  const handleSelectProject = (id) => {
+    const proj = projects.find(p => p.id === id)
+    if (proj) {
+      resetMixer()
+      restoreProject(proj)
+      touchProject(id)
+      setActiveProjectId(id)
+
+      if (proj.backingResult) {
+        setPanelMode('backing-result')
+        setActiveModule('backing')
+      } else if (proj.stemResult) {
+        setPanelMode('result')
+        setActiveModule('separator')
+      } else {
+        setPanelMode('file')
+        setActiveModule('separator')
+      }
+    }
+  }
+
   // ── Stem Separation ─────────────────────────────────────────────────────────
   const handleSeparate = async () => {
+    if (file?.isRestored) {
+      setSeparatorError('Please upload the original audio file again to separate stems.')
+      return
+    }
     if (endSec - startSec < 1.0) { setSeparatorError('Select at least 1 second of audio.'); return }
     setSeparating(true)
     setSeparationComplete(false)
@@ -157,6 +191,13 @@ export default function App() {
           }
         }}
         file={file}
+        onMenuToggle={() => setDrawerOpen(true)}
+      />
+
+      <HistoryDrawer 
+        isOpen={drawerOpen} 
+        onClose={() => setDrawerOpen(false)} 
+        onSelectProject={handleSelectProject} 
       />
 
       <div className="app-body">
@@ -181,7 +222,14 @@ export default function App() {
               currentTime={globalTime}
               isPlaying={globalPlaying}
               onPlayToggle={handleGlobalPlayToggle}
+              onRestart={handleRestart}
               onSeek={handleGlobalSeek}
+              masterVolume={masterVolume}
+              onMasterVolumeChange={handleMasterVolumeChange}
+              peaks={waveformPeaks}
+              stemResult={stemResult}
+              downloadFormat={downloadFormat}
+              onFormatChange={setDownloadFormat}
               startSec={startSec}
               endSec={endSec}
               onStartChange={setStartSec}
@@ -192,35 +240,24 @@ export default function App() {
             />
           )}
 
-          <AnimatePresence mode="wait">
-
             {/* ── No file: upload workspace ── */}
             {!file && (
-              <motion.div
-                key="upload"
-                style={{ height: '100%' }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <UploadWorkspace
-                  onDrop={onDrop}
-                  onFileChange={handleFileChange}
-                  fileInputRef={fileInputRef}
-                />
-              </motion.div>
+              <UploadWorkspace
+                onDrop={onDrop}
+                onFileChange={handleFileChange}
+                fileInputRef={fileInputRef}
+              />
             )}
 
             {/* ── Stem Separator Module ── */}
-            {file && activeModule === 'separator' && (
-              <motion.div
-                key="separator"
-                style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
+            {file && (
+              <div
+                style={{ 
+                  display: activeModule === 'separator' ? 'flex' : 'none', 
+                  flexDirection: 'column', 
+                  flex: 1, 
+                  overflow: 'hidden' 
+                }}
               >
                 {separating && (
                   <SeparationLoader
@@ -249,13 +286,6 @@ export default function App() {
                 {!separating && stemResult && !loadingStems && (
                   <StemsPanel
                     stemResult={stemResult}
-                    globalPlaying={globalPlaying}
-                    globalTime={globalTime}
-                    globalDuration={globalDuration}
-                    downloadFormat={downloadFormat}
-                    onPlayToggle={handleGlobalPlayToggle}
-                    onSeek={handleGlobalSeek}
-                    onFormatChange={setDownloadFormat}
                     mutedStems={mutedStems}
                     soloedStems={soloedStems}
                     stemVolumes={stemVolumes}
@@ -290,18 +320,18 @@ export default function App() {
                     </div>
                   </div>
                 )}
-              </motion.div>
+              </div>
             )}
 
             {/* ── Backing Maker Module ── */}
-            {file && activeModule === 'backing' && (
-              <motion.div
-                key="backing"
-                style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
+            {file && (
+              <div
+                style={{ 
+                  display: activeModule === 'backing' ? 'flex' : 'none', 
+                  flexDirection: 'column', 
+                  flex: 1, 
+                  overflow: 'hidden' 
+                }}
               >
                 <BackingGenerator
                   file={file}
@@ -311,15 +341,16 @@ export default function App() {
                   hasSelection={hasSelection}
                   stemResult={stemResult}
                   onStemResult={setStemResult}
+                  backingResult={backingResult}
+                  onBackingResult={setBackingResult}
                   onPanelModeChange={setPanelMode}
                   onAbortRef={backingAbortRef}
                 />
-              </motion.div>
+              </div>
             )}
-
-          </AnimatePresence>
         </main>
       </div>
+
 
       {/* Hidden file input for Replace File flow */}
       <input

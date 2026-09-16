@@ -1,10 +1,10 @@
-import React, { useRef, useMemo } from 'react'
+import React, { useRef } from 'react'
 
 export default function WaveformPlayer({
   currentTime,
   duration,
   onSeek,
-  fileName,
+  peaks = null,
   customColor = null,
   height = 52,
 }) {
@@ -12,13 +12,21 @@ export default function WaveformPlayer({
   const total     = duration || 1
   const progress  = (currentTime / total) * 100
 
-  const bars = useMemo(() => {
-    let seed = 0
-    const name = fileName || 'waveform'
-    for (let i = 0; i < name.length; i++) seed += name.charCodeAt(i)
-    const rng = (n) => { const s = Math.sin(n) * 43758.5453; return s - Math.floor(s) }
-    return Array.from({ length: 120 }, (_, i) => Math.round(10 + rng(seed + i * 7.3) * 80))
-  }, [fileName])
+  // Normalize peaks to [0..1] range for rendering
+  const normalizedBars = React.useMemo(() => {
+    if (!peaks || peaks.length === 0) {
+      // Empty placeholder bars when no peak data is available
+      return Array.from({ length: 80 }, () => 5)
+    }
+    // Find max peak for normalization
+    let maxPeak = 0
+    for (let i = 0; i < peaks.length; i++) {
+      if (peaks[i] > maxPeak) maxPeak = peaks[i]
+    }
+    if (maxPeak === 0) maxPeak = 1
+    // Map to percentage heights (5% min so bars are always visible)
+    return Array.from(peaks, v => Math.round(5 + (v / maxPeak) * 85))
+  }, [peaks])
 
   const seekFromEvent = (e) => {
     if (!trackRef.current || !onSeek) return
@@ -37,8 +45,8 @@ export default function WaveformPlayer({
       onMouseMove={(e) => { if (e.buttons === 1) seekFromEvent(e) }}
     >
       <div className="waveform-bars">
-        {bars.map((h, i) => {
-          const barPct  = (i / bars.length) * 100
+        {normalizedBars.map((h, i) => {
+          const barPct  = (i / normalizedBars.length) * 100
           const isActive = barPct <= progress
 
           let bg = isActive

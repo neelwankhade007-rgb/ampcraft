@@ -38,7 +38,7 @@ def _get_model():
     return _model, _model_sources
 
 
-def separate_stems(input_path: str, output_dir: str, normalize: bool = True) -> dict:
+def separate_stems(input_path: str, output_dir: str, normalize: bool = True, base_name: str = None) -> dict:
     """
     Run htdemucs_6s on input_path. Saves all 6 stems as WAV files
     into output_dir. Returns a dict mapping stem name → absolute file path.
@@ -47,6 +47,7 @@ def separate_stems(input_path: str, output_dir: str, normalize: bool = True) -> 
         input_path:  Absolute path to input audio file (wav, mp3, flac, etc.)
         output_dir:  Directory to write stem WAV files into. Created if needed.
         normalize:   If True, normalizes present stems to 0.95 peak volume.
+        base_name:   Optional custom name prefix for the output stems.
 
     Returns:
         {
@@ -67,11 +68,13 @@ def separate_stems(input_path: str, output_dir: str, normalize: bool = True) -> 
 
     os.makedirs(output_dir, exist_ok=True)
 
-    base_name = os.path.splitext(
-        os.path.basename(input_path)
-    )[0]
+    if base_name is None:
+        base_name = os.path.splitext(
+            os.path.basename(input_path)
+        )[0]
 
     model, sources = _get_model()
+
 
     # ── Load audio ────────────────────────────────────────────────────────────
     # Workaround for torchaudio/torchcodec FFmpeg loading issues on Windows.
@@ -172,20 +175,11 @@ def separate_stems(input_path: str, output_dir: str, normalize: bool = True) -> 
         # Clamp to [-1, 1] to prevent clipping artifacts
         audio_np = np.clip(audio_np, -1.0, 1.0)
 
-        # Write temporary WAV first (lossless intermediate for ffmpeg)
+        # Write WAV output
         sf.write(wav_path, audio_np, sr, subtype="PCM_16")
 
-        # Transcode to 320 kbps MP3 — ~10x smaller than WAV, no audible quality loss
-        subprocess.run([
-            "ffmpeg", "-y", "-i", wav_path,
-            "-codec:a", "libmp3lame", "-qscale:a", "0",  # VBR V0 ≈ 320kbps
-            "-ar", str(sr),
-            mp3_path
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        # Keep both WAV and MP3 on disk so callers can choose the format
-        stem_paths[name] = {"wav": os.path.abspath(wav_path), "mp3": os.path.abspath(mp3_path)}
-        print(f"[stem_separator] Saved {name}: wav + mp3")
+        stem_paths[name] = {"wav": os.path.abspath(wav_path)}
+        print(f"[stem_separator] Saved {name}: wav")
 
     return stem_paths
 

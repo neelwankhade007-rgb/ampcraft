@@ -1,0 +1,22 @@
+# Ignore python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.env
+
+# Ignore runtime files
+uploads/*
+stems/*
+backings/*
+*.wav
+*.mp3
+
+# Ignore caches and logs
+.cache/
+.github/
+.git/
+*.log

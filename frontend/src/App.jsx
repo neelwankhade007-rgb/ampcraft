@@ -15,6 +15,7 @@ import HistoryDrawer    from './components/HistoryDrawer'
 
 import useProject      from './hooks/useProject'
 import useStemMixer    from './hooks/useStemMixer'
+import { useHistory }   from './context/HistoryContext'
 import { API_BASE_URL } from './config/api'
 
 // ─────────────────────────────────────────────────────────────────────────────

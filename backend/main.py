@@ -57,6 +57,7 @@ _conversion_executor = concurrent.futures.ThreadPoolExecutor(
 _stem_mp3_events = {}
 _backing_mp3_events = {}
 _active_separations = {}  # fingerprint -> asyncio.Event()
+_separation_progress = {}  # job_id or client_job_id -> {"progress": int, "stage": str}
 _jobs_lock = asyncio.Lock()
 
 
@@ -277,6 +278,7 @@ async def separate(
     file: UploadFile = File(...),
     start_sec: float = Form(-1.0),
     end_sec:   float = Form(-1.0),
+    client_job_id: str = Form(None),
 ):
     """
     Accepts any audio file. Runs Demucs htdemucs_6s separation.
@@ -400,9 +402,23 @@ async def separate(
                 raise HTTPException(status_code=500, detail="Separation failed in primary task")
             return build_stem_result_from_dir(job_stems_dir)
 
-        # 5. Primary worker: Run Demucs separation
+        # 5. Primary worker: Run Demucs separation in a thread without blocking the event loop
+        def on_separation_progress(progress_pct: int, stage_desc: str):
+            status_data = {"progress": progress_pct, "stage": stage_desc}
+            _separation_progress[job_id] = status_data
+            if client_job_id:
+                _separation_progress[client_job_id] = status_data
+
         try:
-            stem_paths = separate_stems(upload_path, job_stems_dir, base_name=base_name_no_ext)
+            on_separation_progress(0, "Starting separation")
+            stem_paths = await asyncio.to_thread(
+                separate_stems,
+                upload_path,
+                job_stems_dir,
+                normalize=True,
+                base_name=base_name_no_ext,
+                progress_callback=on_separation_progress,
+            )
 
             # Persist job metadata so the download endpoint can build proper filenames
             meta = {"base_name": base_name_no_ext, "original_filename": safe_name, "fingerprint": fingerprint}
@@ -430,6 +446,11 @@ async def separate(
             result = build_stem_result_from_dir(job_stems_dir)
             return result
         finally:
+            # Clean up active separation progress entry
+            _separation_progress.pop(job_id, None)
+            if client_job_id:
+                _separation_progress.pop(client_job_id, None)
+
             # Always notify any awaiting concurrent requests and cleanup active separations
             async with _jobs_lock:
                 ev = _active_separations.pop(fingerprint, None)
@@ -443,6 +464,18 @@ async def separate(
             except Exception:
                 pass
         raise HTTPException(status_code=500, detail=f"Stem separation failed: {str(e)}")
+
+
+@app.get("/separate/status/{job_id}")
+async def get_separation_status(job_id: str):
+    """
+    Returns current in-memory separation progress for an active job.
+    Returns 404 if the job is not currently active.
+    """
+    progress = _separation_progress.get(job_id)
+    if not progress:
+        raise HTTPException(status_code=404, detail="Separation job not active or not found")
+    return progress
 
 
 @app.get("/download-stems/{job_id}")

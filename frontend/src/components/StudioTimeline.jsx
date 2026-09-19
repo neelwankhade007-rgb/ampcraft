@@ -198,7 +198,7 @@ function StudioTimeline({
         )}
 
         {/* Selection Handles */}
-        {showSelection && hasSelection && (
+        {showSelection && (
           <motion.div
             className="st-handle"
             style={{ left: `${startPct}%` }}
@@ -218,7 +218,7 @@ function StudioTimeline({
           </motion.div>
         )}
 
-        {showSelection && hasSelection && (
+        {showSelection && (
           <motion.div
             className="st-handle"
             style={{ left: `${endPct}%` }}

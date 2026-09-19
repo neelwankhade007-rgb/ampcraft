@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircle2 } from 'lucide-react'
+import { API_BASE_URL } from '../config/api'
 
 const RADIUS = 52
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 // ── Configurable Duration-Aware Progress Estimation Constants ───────────────
 // Note: This is an estimated progress heuristic based on input duration.
-// It is NOT a real-time progress stream from the backend/Demucs.
+// It is used as a fallback if real backend progress polling is not active.
 const DEFAULT_ESTIMATED_DURATION_SEC = 48    // Fallback if audio duration is missing/invalid
 const ESTIMATE_FACTOR_PER_AUDIO_SEC  = 1.0   // Estimated processing seconds per second of audio
 const MIN_ESTIMATED_PROCESSING_SEC   = 15    // Minimum processing estimate floor for short snippets
@@ -19,19 +20,69 @@ const STAGE_RATIO_1 = 3 / 48   // ~0.0625 (Stage 0 -> Stage 1 at 15% progress)
 const STAGE_RATIO_2 = 8 / 48   // ~0.1667 (Stage 1 -> Stage 2 at 30% progress)
 const STAGE_RATIO_3 = 38 / 48  // ~0.7917 (Stage 2 -> Stage 3 at 75% progress)
 
-export default function SeparationLoader({ isComplete, onFinish, isBacking = false, duration }) {
+export default function SeparationLoader({ isComplete, onFinish, isBacking = false, duration, jobId }) {
   const [currentStage, setCurrentStage]         = useState(0)
   const [overallProgress, setOverallProgress]   = useState(0)
+  const [backendStageText, setBackendStageText] = useState(null)
   const overallProgressRef                       = useRef(0)
   overallProgressRef.current                     = overallProgress
 
   const maxProgressRef = useRef(0)
   const initialDurationRef = useRef(duration)
+  const isRealProgressRef = useRef(false)
 
   const onFinishRef = useRef(onFinish)
   onFinishRef.current = onFinish
 
   const startTimeRef = useRef(Date.now())
+
+  // ── Real Backend Demucs Progress Polling ──────────────────────────────────
+  useEffect(() => {
+    if (!jobId || isComplete) return
+
+    let isMounted = true
+    let pollTimer = null
+
+    const pollStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/separate/status/${encodeURIComponent(jobId)}`)
+        if (!isMounted) return
+        if (res.ok) {
+          const data = await res.json()
+          if (data && typeof data.progress === 'number') {
+            isRealProgressRef.current = true
+            const realProg = Math.max(maxProgressRef.current, Math.min(PROGRESS_CEILING, data.progress))
+            maxProgressRef.current = realProg
+            setOverallProgress(realProg)
+
+            if (data.stage) {
+              setBackendStageText(data.stage)
+            }
+
+            // Map progress percentage to high-level stage index (0-4)
+            if (realProg < 5) setCurrentStage(0)
+            else if (realProg < 10) setCurrentStage(1)
+            else if (realProg < 90) setCurrentStage(2)
+            else if (realProg < 100) setCurrentStage(3)
+            else setCurrentStage(4)
+          }
+        }
+      } catch (err) {
+        // Network drop or offline: synthetic curve continues as fallback
+      } finally {
+        if (isMounted && !isComplete) {
+          pollTimer = setTimeout(pollStatus, 450)
+        }
+      }
+    }
+
+    pollStatus()
+
+    return () => {
+      isMounted = false
+      if (pollTimer) clearTimeout(pollTimer)
+    }
+  }, [jobId, isComplete])
 
   useEffect(() => {
     let completedTime   = null
@@ -67,6 +118,11 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
           clearInterval(interval)
           setTimeout(() => onFinishRef.current?.(), 300)
         }
+        return
+      }
+
+      // If we are actively receiving real backend Demucs progress, do NOT advance synthetic estimate
+      if (isRealProgressRef.current) {
         return
       }
 
@@ -118,6 +174,15 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
 
   const strokeOffset = CIRCUMFERENCE - (overallProgress / 100) * CIRCUMFERENCE
 
+  const displaySubtitle = (() => {
+    if (isComplete || overallProgress >= 100) return 'Separation Complete'
+    if (!backendStageText) return STAGES[currentStage]?.sub || 'Please wait…'
+    if (backendStageText.startsWith('Separating instruments')) return 'Separating instruments'
+    if (backendStageText.startsWith('Rendering') || backendStageText === 'Analyzing stems') return 'Rendering stems'
+    if (backendStageText.toLowerCase() === 'separation complete') return 'Separation Complete'
+    return backendStageText.replace(/\s*\(\d+\/\d+\)/g, '').trim()
+  })()
+
   return (
     <motion.div
       className="processing-workspace"
@@ -157,7 +222,7 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
           {isBacking ? 'Generating Backing Track' : 'Separating Stems'}
         </h2>
         <p className="processing-subtitle">
-          {STAGES[currentStage]?.sub || 'Please wait…'}
+          {displaySubtitle}
         </p>
       </div>
 

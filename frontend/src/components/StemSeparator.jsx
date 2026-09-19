@@ -24,6 +24,7 @@ export default function StemSeparator({ onJobIdChange }) {
   // Delayed complete state for loader transition
   const [separationComplete, setSeparationComplete] = useState(false)
   const [pendingResult, setPendingResult] = useState(null)
+  const [sepJobId, setSepJobId] = useState(null)
 
   // Mute & Solo states for each track
   const [mutedStems, setMutedStems] = useState({
@@ -314,6 +315,8 @@ export default function StemSeparator({ onJobIdChange }) {
       setError('Select at least 1 second of audio to separate.')
       return
     }
+    const clientJobId = 'sep_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)
+    setSepJobId(clientJobId)
     setSeparating(true)
     setSeparationComplete(false)
     setPendingResult(null)
@@ -326,6 +329,7 @@ export default function StemSeparator({ onJobIdChange }) {
     fd.append('file', file)
     fd.append('start_sec', String(startSec))
     fd.append('end_sec', String(endSec))
+    fd.append('client_job_id', clientJobId)
 
     try {
       const res = await axios.post(`${API_BASE_URL}/separate`, fd, { 
@@ -344,6 +348,7 @@ export default function StemSeparator({ onJobIdChange }) {
         setError(err.response?.data?.detail || 'Separation failed. Please check if the backend is running.')
       }
       setSeparating(false)
+      setSepJobId(null)
     }
   }
 
@@ -353,6 +358,7 @@ export default function StemSeparator({ onJobIdChange }) {
       abortControllerRef.current = null
     }
     setSeparating(false)
+    setSepJobId(null)
   }
 
   const resetState = () => {
@@ -373,6 +379,7 @@ export default function StemSeparator({ onJobIdChange }) {
     
     setSeparationComplete(false)
     setPendingResult(null)
+    setSepJobId(null)
     setMutedStems({ vocals: false, guitar: false, drums: false, bass: false, piano: false, other: false })
     setSoloedStems({ vocals: false, guitar: false, drums: false, bass: false, piano: false, other: false })
     setStemVolumes({ vocals: 1.0, guitar: 1.0, drums: 1.0, bass: 1.0, piano: 1.0, other: 1.0 })
@@ -406,6 +413,7 @@ export default function StemSeparator({ onJobIdChange }) {
         {separating && (
           <div className="loading-overlay" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <SeparationLoader
+              jobId={sepJobId}
               isComplete={separationComplete}
               duration={endSec > startSec ? (endSec - startSec) : audioDuration}
               onFinish={() => {
@@ -413,6 +421,7 @@ export default function StemSeparator({ onJobIdChange }) {
                 setSeparating(false)
                 setSeparationComplete(false)
                 setPendingResult(null)
+                setSepJobId(null)
               }}
             />
             <button 
@@ -420,7 +429,7 @@ export default function StemSeparator({ onJobIdChange }) {
               className="reset-btn" 
               style={{ maxWidth: '200px', marginTop: '24px' }}
             >
-              Stop Task ⏹️
+              Stop Task
             </button>
           </div>
         )}

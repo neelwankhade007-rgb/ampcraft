@@ -43,6 +43,7 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
   const [separating, setSeparating]                 = useState(false)
   const [separationComplete, setSeparationComplete] = useState(false)
   const [pendingResult, setPendingResult]            = useState(null)
+  const [sepJobId, setSepJobId]                     = useState(null)
   const [separatorError, setSeparatorError]          = useState(null)
   const [downloadFormat, setDownloadFormat]          = useState('mp3')
 
@@ -87,6 +88,7 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
     setSeparating(false)
     setSeparationComplete(false)
     setPendingResult(null)
+    setSepJobId(null)
     setPanelMode('upload')
   }
 
@@ -124,6 +126,8 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
       return
     }
     if (endSec - startSec < 1.0) { setSeparatorError('Select at least 1 second of audio.'); return }
+    const clientJobId = 'sep_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)
+    setSepJobId(clientJobId)
     setSeparating(true)
     setSeparationComplete(false)
     setPendingResult(null)
@@ -137,6 +141,7 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
     fd.append('file', file)
     fd.append('start_sec', String(startSec))
     fd.append('end_sec', String(endSec))
+    fd.append('client_job_id', clientJobId)
 
     try {
       const res = await axios.post(`${API_BASE_URL}/separate`, fd, {
@@ -151,12 +156,14 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
         setPanelMode('file')
       }
       setSeparating(false)
+      setSepJobId(null)
     }
   }
 
   const handleCancelSeparate = () => {
     if (sepAbortRef.current) { sepAbortRef.current.abort(); sepAbortRef.current = null }
     setSeparating(false)
+    setSepJobId(null)
     setPanelMode('file')
   }
 
@@ -264,6 +271,7 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
               >
                 {separating && (
                   <SeparationLoader
+                    jobId={sepJobId}
                     isComplete={separationComplete}
                     duration={hasSelection && (endSec > startSec) ? (endSec - startSec) : (audioDuration || (endSec > startSec ? endSec - startSec : 0))}
                     onFinish={() => {
@@ -271,6 +279,7 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
                       setSeparating(false)
                       setSeparationComplete(false)
                       setPendingResult(null)
+                      setSepJobId(null)
                       setPanelMode('result')
                     }}
                   />

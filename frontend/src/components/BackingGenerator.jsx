@@ -49,6 +49,7 @@ export default function BackingGenerator({
   const [separating, setSeparating] = useState(false)
   const [separationComplete, setSeparationComplete] = useState(false)
   const [pendingSepResult, setPendingSepResult] = useState(null)
+  const [sepJobId, setSepJobId] = useState(null)
 
   // Mixing-phase state
   const [generatingDirectly, setGeneratingDirectly] = useState(false)
@@ -142,6 +143,8 @@ export default function BackingGenerator({
         setError('Select at least 1 second of audio.')
         return
       }
+      const clientJobId = 'sep_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)
+      setSepJobId(clientJobId)
       setSeparating(true)
       setSeparationComplete(false)
       setPendingSepResult(null)
@@ -154,6 +157,7 @@ export default function BackingGenerator({
       fd.append('file', file)
       fd.append('start_sec', String(startSec))
       fd.append('end_sec', String(endSec))
+      fd.append('client_job_id', clientJobId)
 
       try {
         // Phase 1: Separate stems
@@ -169,6 +173,7 @@ export default function BackingGenerator({
           if (onPanelModeChange) onPanelModeChange('file')
         }
         setSeparating(false)
+        setSepJobId(null)
       }
     }
   }
@@ -184,6 +189,8 @@ export default function BackingGenerator({
       setError('Select at least 1 second of audio.')
       return
     }
+    const clientJobId = 'sep_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)
+    setSepJobId(clientJobId)
     setSeparating(true)
     setSeparationComplete(false)
     setPendingSepResult(null)
@@ -196,6 +203,7 @@ export default function BackingGenerator({
     fd.append('file', file)
     fd.append('start_sec', String(startSec))
     fd.append('end_sec', String(endSec))
+    fd.append('client_job_id', clientJobId)
 
     try {
       const sepRes = await axios.post(`${BASE_URL}/separate`, fd, {
@@ -206,6 +214,7 @@ export default function BackingGenerator({
       setSeparating(false)
       setSeparationComplete(false)
       setPendingSepResult(null)
+      setSepJobId(null)
       if (onPanelModeChange) onPanelModeChange('file')
     } catch (err) {
       if (!axios.isCancel(err) && err.name !== 'CanceledError') {
@@ -213,6 +222,7 @@ export default function BackingGenerator({
         if (onPanelModeChange) onPanelModeChange('file')
       }
       setSeparating(false)
+      setSepJobId(null)
     }
   }
 
@@ -222,6 +232,7 @@ export default function BackingGenerator({
     setSeparating(false)
     setSeparationComplete(false)
     setPendingSepResult(null)
+    setSepJobId(null)
 
     // Store stems into project so other modules can reuse them
     if (onStemResult) onStemResult(sepData)
@@ -261,6 +272,7 @@ export default function BackingGenerator({
   const handleReset = () => {
     setResult(null)
     setError(null)
+    setSepJobId(null)
     if (onPanelModeChange) onPanelModeChange('file')
   }
 
@@ -269,6 +281,7 @@ export default function BackingGenerator({
     return (
       <SeparationLoader
         isBacking
+        jobId={sepJobId}
         isComplete={separationComplete}
         duration={hasSelection && (endSec > startSec) ? (endSec - startSec) : (audioDuration || (endSec > startSec ? endSec - startSec : 0))}
         onFinish={handleSeparationFinished}

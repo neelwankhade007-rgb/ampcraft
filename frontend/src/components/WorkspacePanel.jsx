@@ -35,7 +35,14 @@ function WorkspacePanel({
         <motion.div
           key={mode}
           {...panelVariants}
-          style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+          }}
         >
           {/* ── AUDIO SOURCE METADATA ── */}
           <div className="wp-section">
@@ -90,7 +97,7 @@ function WorkspacePanel({
 
           {/* ── BOTTOM ACTIONS ── */}
           {mode !== 'upload' && (
-            <div style={{ marginTop: 'auto' }}>
+            <div style={{ marginTop: 'auto', flexShrink: 0 }}>
               <div className="wp-section">
                 {mode === 'processing' ? (
                   <button

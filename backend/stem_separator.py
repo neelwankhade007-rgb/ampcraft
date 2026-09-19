@@ -16,6 +16,7 @@ re-loading on every request — Demucs model is ~300MB in memory.
 """
 
 import os
+from typing import Optional, Callable
 import torch
 import torchaudio
 import soundfile as sf
@@ -38,16 +39,23 @@ def _get_model():
     return _model, _model_sources
 
 
-def separate_stems(input_path: str, output_dir: str, normalize: bool = True, base_name: str = None) -> dict:
+def separate_stems(
+    input_path: str,
+    output_dir: str,
+    normalize: bool = True,
+    base_name: str = None,
+    progress_callback: Optional[Callable[[int, str], None]] = None,
+) -> dict:
     """
     Run htdemucs_6s on input_path. Saves all 6 stems as WAV files
     into output_dir. Returns a dict mapping stem name → absolute file path.
 
     Args:
-        input_path:  Absolute path to input audio file (wav, mp3, flac, etc.)
-        output_dir:  Directory to write stem WAV files into. Created if needed.
-        normalize:   If True, normalizes present stems to 0.95 peak volume.
-        base_name:   Optional custom name prefix for the output stems.
+        input_path:        Absolute path to input audio file (wav, mp3, flac, etc.)
+        output_dir:        Directory to write stem WAV files into. Created if needed.
+        normalize:         If True, normalizes present stems to 0.95 peak volume.
+        base_name:         Optional custom name prefix for the output stems.
+        progress_callback: Optional callback receiving (progress_percent: int, stage_description: str).
 
     Returns:
         {
@@ -75,6 +83,8 @@ def separate_stems(input_path: str, output_dir: str, normalize: bool = True, bas
 
     model, sources = _get_model()
 
+    if progress_callback:
+        progress_callback(1, "Loading and preparing audio")
 
     # ── Load audio ────────────────────────────────────────────────────────────
     # Workaround for torchaudio/torchcodec FFmpeg loading issues on Windows.
@@ -110,11 +120,34 @@ def separate_stems(input_path: str, output_dir: str, normalize: bool = True, bas
     elif waveform.shape[0] > 2:
         waveform = waveform[:2, :]
 
+    if progress_callback:
+        progress_callback(5, "Demucs model ready")
+
     # ── Run separation ────────────────────────────────────────────────────────
     # apply_model expects shape [batch, channels, samples]
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
     waveform = waveform.to(device)
+
+    # ── Calculate exact Demucs chunk count ───────────────────────────────────
+    # htdemucs_6s model is wrapped in BagOfModels or HTDemucs.
+    sub_model = model.models[0] if hasattr(model, "models") else model
+    segment_val = getattr(sub_model, "segment", 7.8)
+    segment_length = int(sub_model.samplerate * float(segment_val))
+    overlap = 0.25
+    stride = int((1 - overlap) * segment_length)
+    num_models = len(model.models) if hasattr(model, "models") else 1
+    total_chunks = max(1, num_models * len(range(0, waveform.shape[-1], stride)))
+
+    completed_chunks = 0
+    def demucs_chunk_callback(data):
+        nonlocal completed_chunks
+        if data.get("state") == "end":
+            completed_chunks += 1
+            if progress_callback:
+                # Progress mapping: Demucs inference phase spans 5% to 90%
+                pct = 5 + int((min(completed_chunks, total_chunks) / total_chunks) * 85)
+                progress_callback(pct, f"Separating instruments ({completed_chunks}/{total_chunks})")
 
     from demucs.apply import apply_model
     with torch.no_grad():
@@ -125,9 +158,14 @@ def separate_stems(input_path: str, output_dir: str, normalize: bool = True, bas
             split=True,       # process in segments to save memory
             overlap=0.25,     # 25% overlap between segments
             progress=False,
+            callback=demucs_chunk_callback if progress_callback else None,
         )[0]                  # remove batch dim → [num_sources, channels, samples]
 
     # ── Save stems ────────────────────────────────────────────────────────────
+    if progress_callback:
+        # Progress mapping: post-processing phase begins at 90%
+        progress_callback(90, "Analyzing stems")
+
     # Compute the original mix RMS as a reference level.
     # We use this to decide whether each stem has real content or is just
     # the low-level residual noise Demucs produces for absent instruments.
@@ -180,6 +218,14 @@ def separate_stems(input_path: str, output_dir: str, normalize: bool = True, bas
 
         stem_paths[name] = {"wav": os.path.abspath(wav_path)}
         print(f"[stem_separator] Saved {name}: wav")
+
+        if progress_callback:
+            # Progress mapping: stem saving spans 90% to 100%
+            pct = 90 + int(((i + 1) / len(sources)) * 10)
+            progress_callback(min(100, pct), f"Rendering {name} stem")
+
+    if progress_callback:
+        progress_callback(100, "Separation complete")
 
     return stem_paths
 

@@ -2106,6 +2106,7 @@ body {
     width: 100%;
     min-width: 100%;
     height: auto;
+    max-height: 45vh;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }

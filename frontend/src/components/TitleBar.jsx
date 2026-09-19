@@ -2,7 +2,7 @@ import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, Music2 } from 'lucide-react'
 
-export default function TitleBar({ activeModule, onModuleChange, file, onMenuToggle }) {
+export default function TitleBar({ activeModule, onModuleChange, file, onMenuToggle, onNavigateHome }) {
   const modules = [
     { id: 'separator', label: 'Stem Separator' },
     { id: 'backing',   label: 'Backing Maker'  },
@@ -11,11 +11,24 @@ export default function TitleBar({ activeModule, onModuleChange, file, onMenuTog
   return (
     <header className="titlebar">
       {/* Brand - Left */}
-      <div className="titlebar-brand">
+      <button
+        className="titlebar-brand"
+        onClick={onNavigateHome}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}
+        aria-label="Navigate to home"
+      >
         <img src="/logo.png" alt="AmpCraft logo" className="brand-logo" style={{ height: '24px', width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
         <span className="brand-wordmark">AmpCraft</span>
         <span className="brand-badge">Studio</span>
-      </div>
+      </button>
 
       {/* Module Tabs - Center */}
       <nav className="titlebar-modules">

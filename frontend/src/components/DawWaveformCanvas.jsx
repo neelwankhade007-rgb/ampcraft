@@ -1,9 +1,11 @@
-import React, { useRef, useEffect, memo } from 'react'
+import React, { useRef, useEffect, memo, useState } from 'react'
+import WaveformLoadingState from './WaveformLoadingState'
 
 /**
  * DawWaveformCanvas
  * Renders a traditional, continuous audio envelope on a canvas from real AudioBuffer/Float32Array min-max peaks.
  * Non-destructive, high performance, handles DPR scaling, seeking and playhead progress.
+ * When peaks become available, progressively reveals the REAL waveform from left to right with a slow animation.
  */
 function DawWaveformCanvas({
   peaks,            // Array or Float32Array of min/max or peak amplitude data
@@ -16,6 +18,47 @@ function DawWaveformCanvas({
   interactive = true,
 }) {
   const canvasRef = useRef(null)
+  const [revealProgress, setRevealProgress] = useState(1) // 0 to 1, controls reveal animation
+  const animationRef = useRef(null)
+  const prevPeaksRef = useRef(null)
+
+  // Detect when new peaks arrive and trigger reveal animation
+  useEffect(() => {
+    if (peaks && peaks !== prevPeaksRef.current && peaks.length > 0) {
+      // New real waveform data loaded - start slow reveal animation
+      setRevealProgress(0)
+      prevPeaksRef.current = peaks
+
+      let start = null
+      const duration = 1500 // 1.5 seconds for slow, smooth reveal
+
+      const animate = (timestamp) => {
+        if (!start) start = timestamp
+        const elapsed = timestamp - start
+        const progress = Math.min(elapsed / duration, 1)
+
+        // Ease-out for smooth deceleration
+        const eased = 1 - Math.pow(1 - progress, 3)
+        setRevealProgress(eased)
+
+        if (progress < 1) {
+          animationRef.current = requestAnimationFrame(animate)
+        }
+      }
+
+      animationRef.current = requestAnimationFrame(animate)
+
+      return () => {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current)
+        }
+      }
+    } else if (!peaks) {
+      // Reset when peaks are cleared
+      prevPeaksRef.current = null
+      setRevealProgress(1)
+    }
+  }, [peaks])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -71,9 +114,14 @@ function DawWaveformCanvas({
       if (maxVal === 0) maxVal = 1
 
       const playheadX = progress * width
+      const revealX = revealProgress * width // Only render real waveform up to this X position
 
       for (let i = 0; i < totalPoints; i++) {
         const x = i * step
+
+        // Only draw bars that are within the revealed region
+        if (x > revealX) break
+
         const peakIdx = Math.floor((i / totalPoints) * peaks.length)
         const rawVal = peaks[peakIdx]
         
@@ -126,7 +174,7 @@ function DawWaveformCanvas({
       resizeObserver.disconnect()
       window.removeEventListener('resize', render)
     }
-  }, [peaks, progress, height, playedColor, unplayedColor, centerLineColor])
+  }, [peaks, progress, height, playedColor, unplayedColor, centerLineColor, revealProgress])
 
   const handleClick = (e) => {
     if (!interactive || !onSeek || !canvasRef.current) return
@@ -134,6 +182,16 @@ function DawWaveformCanvas({
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
     onSeek(ratio)
+  }
+
+  // Show empty loading state while waiting for real peaks data
+  if (!peaks || peaks.length === 0) {
+    return (
+      <WaveformLoadingState
+        height={height}
+        centerLineColor={centerLineColor}
+      />
+    )
   }
 
   return (

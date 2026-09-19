@@ -583,6 +583,7 @@ async def generate_backing_endpoint(
 async def generate_backing_from_stems_endpoint(
     job_id: str = Form(...),
     backing_type: str = Form(...),
+    volumes: str = Form(None),
 ):
     """
     Generates a backing track by reusing already-separated stems.
@@ -602,8 +603,23 @@ async def generate_backing_from_stems_endpoint(
             base_name = meta.get("base_name", job_id)
         else:
             base_name = job_id
-        # Deterministic backing job ID: backing_{stems_job_id}_{backing_type}
-        backing_job_id = f"backing_{job_id}_{backing_type}"
+
+        # Parse custom volumes and generate a hash for deterministic caching
+        custom_volumes = None
+        vol_hash = ""
+        if volumes:
+            try:
+                custom_volumes = json.loads(volumes)
+                # Sort keys to ensure consistent hashing for the same values
+                sorted_vols = sorted(custom_volumes.items())
+                vol_str = json.dumps(sorted_vols)
+                import hashlib
+                vol_hash = "_" + hashlib.md5(vol_str.encode()).hexdigest()[:8]
+            except Exception as e:
+                print(f"Error parsing volumes JSON: {e}")
+
+        # Deterministic backing job ID
+        backing_job_id = f"backing_{job_id}_{backing_type}{vol_hash}"
         backing_dir = os.path.join(BACKINGS_DIR, backing_job_id)
         wav_filename = f"{base_name}_{backing_type}_backing.wav"
         wav_path = os.path.join(backing_dir, wav_filename)
@@ -628,6 +644,7 @@ async def generate_backing_from_stems_endpoint(
                 backing_type=backing_type,
                 backing_job_id=backing_job_id,
                 base_name=base_name,
+                custom_volumes=custom_volumes,
             )
             wav_path = res["wav_path"]
 

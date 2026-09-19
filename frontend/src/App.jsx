@@ -21,8 +21,9 @@ import { useHistory }  from './context/HistoryContext'
 // App — coordinates active modules, shared timeline, and project playback state
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function App() {
-  const [activeModule, setActiveModule] = useState('separator')
+export default function App({ initialModule = 'separator', onNavigateHome }) {
+  // ── Global State ────────────────────────────────────────────────────────────
+  const [activeModule, setActiveModule] = useState(initialModule) // 'separator' or 'backing'
   const [panelMode, setPanelMode] = useState('upload')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
@@ -192,6 +193,7 @@ export default function App() {
         }}
         file={file}
         onMenuToggle={() => setDrawerOpen(true)}
+        onNavigateHome={onNavigateHome}
       />
 
       <HistoryDrawer 
@@ -345,6 +347,12 @@ export default function App() {
                   onBackingResult={setBackingResult}
                   onPanelModeChange={setPanelMode}
                   onAbortRef={backingAbortRef}
+                  mutedStems={mutedStems}
+                  soloedStems={soloedStems}
+                  stemVolumes={stemVolumes}
+                  onMuteToggle={(n) => setMutedStems(p => ({ ...p, [n]: !p[n] }))}
+                  onSoloToggle={(n) => setSoloedStems(p => ({ ...p, [n]: !p[n] }))}
+                  onVolumeChange={(n, v) => setStemVolumes(p => ({ ...p, [n]: v }))}
                 />
               </div>
             )}

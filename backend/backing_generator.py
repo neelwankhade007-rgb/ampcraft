@@ -60,17 +60,19 @@ import shutil
 # Reusable mixing function — operates on a directory of WAV stems
 # ─────────────────────────────────────────────────────────────────────────────
 
-def mix_stems_to_backing(stems_dir: str, backing_type: str, backing_dir: str, base_name: str):
+def mix_stems_to_backing(stems_dir: str, backing_type: str, backing_dir: str, base_name: str, custom_volumes: dict = None):
     """
     Reads WAV stems from `stems_dir`, applies the volume config for
-    `backing_type`, mixes them, and writes WAV + MP3 into `backing_dir`.
+    `backing_type` (or `custom_volumes` if provided), mixes them, and writes WAV + MP3 into `backing_dir`.
 
     Returns dict with wav_path, mp3_path.
     """
-    if backing_type not in BACKING_CONFIGS:
-        raise ValueError(f"Unsupported backing type: {backing_type}")
-
-    config = BACKING_CONFIGS[backing_type]
+    if custom_volumes is not None:
+        config = custom_volumes
+    else:
+        if backing_type not in BACKING_CONFIGS:
+            raise ValueError(f"Unsupported backing type: {backing_type}")
+        config = BACKING_CONFIGS[backing_type]
 
     # Collect stems to mix
     active_stems = []
@@ -187,7 +189,8 @@ def generate_backing_from_existing_stems(
     stems_job_id: str,
     backing_type: str,
     backing_job_id: str,
-    base_name: str
+    base_name: str,
+    custom_volumes: dict = None
 ):
     """
     Generates a backing track by reusing already-separated stems in
@@ -200,7 +203,7 @@ def generate_backing_from_existing_stems(
     backing_dir = os.path.join(BACKINGS_DIR, backing_job_id)
     os.makedirs(backing_dir, exist_ok=True)
 
-    result = mix_stems_to_backing(stems_dir, backing_type, backing_dir, base_name)
+    result = mix_stems_to_backing(stems_dir, backing_type, backing_dir, base_name, custom_volumes=custom_volumes)
 
     return {
         "job_id": backing_job_id,

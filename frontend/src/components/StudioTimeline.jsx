@@ -1,5 +1,5 @@
 import React, { useRef, useMemo, useEffect, memo } from 'react'
-import { Play, Pause, RotateCcw, Volume2, VolumeX, Download } from 'lucide-react'
+import { Play, Pause, RotateCcw, SkipBack, Volume2, VolumeX, Download } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { formatTime } from '../utils/formatTime'
 import DawWaveformCanvas from './DawWaveformCanvas'
@@ -171,7 +171,7 @@ function StudioTimeline({
         <DawWaveformCanvas
           peaks={peaks}
           progress={progressRatio}
-          height={96}
+          height={120}
           playedColor="#f59e0b"
           unplayedColor="#2a3142"
           centerLineColor="rgba(255, 255, 255, 0.05)"
@@ -265,16 +265,14 @@ function StudioTimeline({
             onClick={onPlayToggle}
             title={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause size={14} className="fill-current" /> : <Play size={14} className="fill-current" />}
-            <span>{isPlaying ? 'Pause' : 'Play'}</span>
+            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
           </button>
           <button
             className="master-btn restart-btn"
             onClick={onRestart}
             title="Restart to 0:00"
           >
-            <RotateCcw size={13} />
-            <span>Restart</span>
+            <SkipBack size={18} />
           </button>
         </div>
 

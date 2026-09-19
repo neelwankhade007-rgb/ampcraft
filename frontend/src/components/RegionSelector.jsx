@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Play, Square, Scissors } from 'lucide-react'
 import { formatTime } from '../utils/formatTime'
+import DawWaveformCanvas from './DawWaveformCanvas'
 
 export default function RegionSelector({
   duration,
@@ -17,28 +18,23 @@ export default function RegionSelector({
   fileName,
   buttonLabel,
   buttonIcon,
+  peaks = null,
 }) {
   const trackRef = useRef(null)
   const dragging = useRef(null)
 
-  const total    = duration || 1
-  const startPct = (startSec / total) * 100
-  const endPct   = (endSec   / total) * 100
+  const total    = Math.max(0.1, duration || 1)
+  const startPct = Math.max(0, Math.min(100, (startSec / total) * 100))
+  const endPct   = Math.max(0, Math.min(100, (endSec   / total) * 100))
   const selDur   = endSec - startSec
 
-  // Deterministic fake waveform from filename
-  const bars = useMemo(() => {
-    let seed = 0
-    const name = fileName || 'waveform'
-    for (let i = 0; i < name.length; i++) seed += name.charCodeAt(i)
-    const rng = (n) => { const s = Math.sin(n) * 43758.5453; return s - Math.floor(s) }
-    return Array.from({ length: 90 }, (_, i) => Math.round(12 + rng(seed + i * 7.3) * 78))
-  }, [fileName])
-
-  // Timeline ticks (5 evenly spaced)
-  const ticks = Array.from({ length: 5 }, (_, i) => (total / 4) * i)
+  // Timeline ticks (7 evenly spaced)
+  const ticks = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => (total / 6) * i)
+  }, [total])
 
   const secFromEvent = (e) => {
+    if (!trackRef.current) return 0
     const rect = trackRef.current.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
@@ -67,7 +63,7 @@ export default function RegionSelector({
       window.removeEventListener('touchmove', onMove)
       window.removeEventListener('touchend',  onUp)
     }
-  }, [startSec, endSec, total])
+  }, [startSec, endSec, total, onStartChange, onEndChange])
 
   return (
     <div className="region-selector">
@@ -81,20 +77,14 @@ export default function RegionSelector({
 
       {/* Waveform Track */}
       <div className="rs-track-wrap" ref={trackRef}>
-        {/* Waveform bars */}
-        <div className="rs-waveform">
-          {bars.map((h, i) => {
-            const pct = (i / bars.length) * 100
-            const active = pct >= startPct && pct <= endPct
-            return (
-              <div
-                key={i}
-                className={`rs-bar ${active ? 'rs-bar-active' : ''}`}
-                style={{ height: `${h}%` }}
-              />
-            )
-          })}
-        </div>
+        <DawWaveformCanvas
+          peaks={peaks}
+          progress={0}
+          height={80}
+          playedColor="#f59e0b"
+          unplayedColor="#2a3142"
+          interactive={false}
+        />
 
         {/* Selection overlay */}
         <div

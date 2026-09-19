@@ -1,19 +1,11 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import GlobalMixer from './GlobalMixer'
 import StemRow from './StemRow'
 
 const STEM_ORDER = ['vocals', 'guitar', 'drums', 'bass', 'piano', 'other']
 
 export default function StemsPanel({
   stemResult,
-  globalPlaying,
-  globalTime,
-  globalDuration,
-  downloadFormat,
-  onPlayToggle,
-  onSeek,
-  onFormatChange,
   mutedStems,
   soloedStems,
   stemVolumes,
@@ -21,7 +13,9 @@ export default function StemsPanel({
   onSoloToggle,
   onVolumeChange,
 }) {
-  // Sort stems in preferred order, fall back to alphabetical for unknowns
+  if (!stemResult || !stemResult.stems) return null
+
+  // Sort stems in preferred order (vocals, guitar, drums, bass, piano, other)
   const stemEntries = Object.entries(stemResult.stems).sort(([a], [b]) => {
     const ai = STEM_ORDER.indexOf(a)
     const bi = STEM_ORDER.indexOf(b)
@@ -38,20 +32,11 @@ export default function StemsPanel({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
     >
-      {/* Master Transport */}
-      <GlobalMixer
-        globalPlaying={globalPlaying}
-        globalTime={globalTime}
-        globalDuration={globalDuration}
-        stemResult={stemResult}
-        downloadFormat={downloadFormat}
-        onPlayToggle={onPlayToggle}
-        onSeek={onSeek}
-        onFormatChange={onFormatChange}
-      />
-
-      {/* Stems Grid */}
       <div className="stems-grid-area">
+        <div className="stems-grid-header">
+          <h3 className="mixer-title">Stem Mixer</h3>
+          <span className="mixer-subtitle">Channel Controls & Stems Export</span>
+        </div>
         <div className="stems-grid">
           {stemEntries.map(([name, url], i) => (
             <StemRow
@@ -61,15 +46,10 @@ export default function StemsPanel({
               index={i}
               mutedStems={mutedStems}
               soloedStems={soloedStems}
-              volume={stemVolumes[name] ?? 0.8}
-              globalTime={globalTime}
-              globalDuration={globalDuration}
-              globalPlaying={globalPlaying}
+              volume={stemVolumes[name] ?? 1.0}
               onMuteToggle={onMuteToggle}
               onSoloToggle={onSoloToggle}
               onVolumeChange={onVolumeChange}
-              onSeek={onSeek}
-              onPlayToggle={onPlayToggle}
             />
           ))}
         </div>

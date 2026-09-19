@@ -1,10 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useHistory } from '../context/HistoryContext'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useProject — single source of truth for the entire AmpCraft project lifecycle
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function useProject() {
+  const { addProject, updateProject, activeProjectId, setActiveProjectId } = useHistory()
+
   // ── File & metadata ─────────────────────────────────────────────────────────
   const [file, setFile] = useState(null)
   const [audioDuration, setAudioDuration] = useState(0)
@@ -21,6 +24,7 @@ export default function useProject() {
   // ── AudioContext (shared across hooks) ──────────────────────────────────────
   const audioCtxRef = useRef(null)
   const audioBufferRef = useRef(null)
+  const [audioBuffer, setAudioBuffer] = useState(null)
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const stemsExist = !!stemResult
@@ -31,6 +35,7 @@ export default function useProject() {
     setStemResult(null)
     setBackingResult(null)
     audioBufferRef.current = null
+    setAudioBuffer(null)
 
     if (f) {
       try {
@@ -40,12 +45,16 @@ export default function useProject() {
         }
         const decoded = await audioCtxRef.current.decodeAudioData(ab)
         audioBufferRef.current = decoded
+        setAudioBuffer(decoded)
         const total = Math.floor(decoded.duration)
         setAudioDuration(total)
         setSampleRate(decoded.sampleRate)
         setStartSec(0)
         setEndSec(total)
         setHasSelection(false)
+
+        // Automatically add to history
+        addProject(f.name, total, decoded.sampleRate)
       } catch (err) {
         console.warn('Could not decode audio for preview:', err)
         setSampleRate(null)
@@ -55,6 +64,20 @@ export default function useProject() {
       setAudioDuration(0)
       setHasSelection(false)
     }
+  }, [addProject])
+
+  // ── Restore project from history ────────────────────────────────────────────
+  const restoreProject = useCallback((project) => {
+    setFile({ name: project.name, size: 0, isRestored: true })
+    setAudioDuration(project.duration)
+    setSampleRate(project.sampleRate)
+    setStartSec(project.startSec)
+    setEndSec(project.endSec)
+    setHasSelection(project.hasSelection)
+    setStemResult(project.stemResult)
+    setBackingResult(project.backingResult)
+    audioBufferRef.current = null
+    setAudioBuffer(null)
   }, [])
 
   // ── Clear everything (Replace File) ─────────────────────────────────────────
@@ -69,7 +92,34 @@ export default function useProject() {
     setHasSelection(false)
     setDragging(false)
     audioBufferRef.current = null
-  }, [])
+    setAudioBuffer(null)
+    setActiveProjectId(null)
+  }, [setActiveProjectId])
+
+  // ── Autosave current workspace settings to history ─────────────────────────
+  useEffect(() => {
+    if (activeProjectId) {
+      updateProject(activeProjectId, {
+        duration: audioDuration,
+        sampleRate,
+        startSec,
+        endSec,
+        hasSelection,
+        stemResult,
+        backingResult,
+      })
+    }
+  }, [
+    activeProjectId,
+    audioDuration,
+    sampleRate,
+    startSec,
+    endSec,
+    hasSelection,
+    stemResult,
+    backingResult,
+    updateProject
+  ])
 
   // ── Cleanup AudioContext on unmount ──────────────────────────────────────────
   useEffect(() => {
@@ -101,12 +151,14 @@ export default function useProject() {
     setBackingResult,
     stemsExist,
 
-    // Audio refs (shared)
+    // Audio refs & state (shared)
     audioCtxRef,
     audioBufferRef,
+    audioBuffer,
 
     // Actions
     loadFile,
+    restoreProject,
     clearProject,
   }
 }

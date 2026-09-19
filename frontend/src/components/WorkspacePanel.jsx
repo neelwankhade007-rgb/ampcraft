@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, X, AlertCircle } from 'lucide-react'
 import { formatTime } from '../utils/formatTime'
@@ -8,7 +8,7 @@ import { formatTime } from '../utils/formatTime'
 // No upload zone. No progress bar. No download controls.
 // ────────────────────────────────────────────────────────────────
 
-export default function WorkspacePanel({
+function WorkspacePanel({
   mode = 'upload',   // 'upload' | 'file' | 'processing' | 'result' | 'backing-result'
   file,
   audioDuration,
@@ -117,3 +117,5 @@ export default function WorkspacePanel({
     </aside>
   )
 }
+
+export default memo(WorkspacePanel)

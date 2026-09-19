@@ -1,0 +1,46 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ampcraft-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - TORCH_HOME=/app/.cache/torch
+    volumes:
+      # Bind mount code for hot reloading during development
+      - ./backend:/app
+      # Persistent named volumes for audio assets and model weights
+      - backend_uploads:/app/uploads
+      - backend_stems:/app/stems
+      - backend_backings:/app/backings
+      - backend_temp:/app/temp_conversions
+      - torch_cache:/app/.cache/torch
+      # Prevent host environment artifacts from polluting the container
+      - /app/__pycache__
+      - /app/.venv
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - ampcraft-network
+
+networks:
+  ampcraft-network:
+    driver: bridge
+
+volumes:
+  backend_uploads:
+  backend_stems:
+  backend_backings:
+  backend_temp:
+  torch_cache:

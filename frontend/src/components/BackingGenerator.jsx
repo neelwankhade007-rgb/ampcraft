@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Guitar, Music2, Drum, Piano, Mic2, Download, RotateCcw, Waves, CheckCircle2, Check, ChevronDown, Loader2 } from 'lucide-react'
+import { Guitar, Music2, Drum, Piano, Mic2, Download, RotateCcw, Waves, CheckCircle2, Check, ChevronDown, Loader2, Scissors } from 'lucide-react'
 import SeparationLoader from './SeparationLoader'
 import BackingPlayer from './BackingPlayer'
+import StemsPanel from './StemsPanel'
 
 const BASE_URL = 'http://localhost:8000'
 
@@ -24,12 +25,23 @@ export default function BackingGenerator({
   hasSelection,
   stemResult,            // existing stems from Separator (if any)
   onStemResult,          // callback to store stems back into project
+  backingResult,         // backing track result from project
+  onBackingResult,       // callback to store backing results back into project
   // Panel mode
   onPanelModeChange,
   onAbortRef,
+  // Stem mixer props (for manual mode)
+  mutedStems,
+  soloedStems,
+  stemVolumes,
+  onMuteToggle,
+  onSoloToggle,
+  onVolumeChange,
 }) {
   const [backingType, setBackingType] = useState('guitar')
-  const [result, setResult] = useState(null)
+  const [mode, setMode] = useState('auto') // 'auto' or 'manual'
+  const result = backingResult
+  const setResult = onBackingResult
   const [error, setError] = useState(null)
 
   // Separation-phase state (for auto-pipeline)
@@ -47,31 +59,29 @@ export default function BackingGenerator({
 
   const stemsExist = !!stemResult
 
-  const formatUrls = {
-    wav: result?.wav_url,
-    mp3: result?.mp3_url,
-  }
-
   const handleDownload = async () => {
     if (!result) return
-    const url = formatUrls[selectedFormat]
-    if (!url) return
-    
+    const wavFilename = result.wav_url.split('/').pop()
+    const baseWithoutExt = wavFilename.replace(/\.wav$/i, '')
+    const targetFilename = `${baseWithoutExt}.${selectedFormat}`
+    const downloadEndpoint = `${BASE_URL}/download-backing/${result.job_id}/${targetFilename}`
+
     setDownloading(true)
     try {
-      const response = await fetch(`${BASE_URL}${url}`)
+      const response = await fetch(downloadEndpoint)
+      if (!response.ok) throw new Error("Download request failed")
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = downloadUrl
-      const filename = url.split('/').pop() || `${result.backing_type}_backing.${selectedFormat}`
-      a.download = filename
+      a.download = targetFilename
       document.body.appendChild(a)
       a.click()
       a.remove()
       window.URL.revokeObjectURL(downloadUrl)
     } catch (err) {
       console.error("Download failed:", err)
+      setError("Failed to download backing track.")
     } finally {
       setDownloading(false)
     }
@@ -92,7 +102,19 @@ export default function BackingGenerator({
 
       const fd = new FormData()
       fd.append('job_id', stemResult.job_id)
-      fd.append('backing_type', backingType)
+
+      if (mode === 'manual') {
+        fd.append('backing_type', 'manual')
+        const effectiveVolumes = {}
+        const hasAnySolo = Object.values(soloedStems || {}).some(v => Boolean(v))
+        Object.keys(stemVolumes || {}).forEach(name => {
+          const isMuted = mutedStems[name] || (hasAnySolo && !soloedStems[name])
+          effectiveVolumes[name] = isMuted ? 0 : stemVolumes[name]
+        })
+        fd.append('volumes', JSON.stringify(effectiveVolumes))
+      } else {
+        fd.append('backing_type', backingType)
+      }
 
       try {
         const response = await axios.post(`${BASE_URL}/generate-backing-from-stems`, fd, {
@@ -111,6 +133,10 @@ export default function BackingGenerator({
       }
     } else {
       // Auto-pipeline: separate first, then generate backing
+      if (file?.isRestored) {
+        setError('Please upload the original audio file again to separate stems.')
+        return
+      }
       if (endSec - startSec < 1.0) {
         setError('Select at least 1 second of audio.')
         return
@@ -146,6 +172,49 @@ export default function BackingGenerator({
     }
   }
 
+  // Prepares stems for manual mode without generating a track immediately
+  const handlePrepareManual = async () => {
+    setError(null)
+    if (file?.isRestored) {
+      setError('Please upload the original audio file again to separate stems.')
+      return
+    }
+    if (endSec - startSec < 1.0) {
+      setError('Select at least 1 second of audio.')
+      return
+    }
+    setSeparating(true)
+    setSeparationComplete(false)
+    setPendingSepResult(null)
+    if (onPanelModeChange) onPanelModeChange('processing')
+
+    const controller = new AbortController()
+    if (onAbortRef) onAbortRef.current = controller
+
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('start_sec', String(startSec))
+    fd.append('end_sec', String(endSec))
+
+    try {
+      const sepRes = await axios.post(`${BASE_URL}/separate`, fd, {
+        timeout: 300000,
+        signal: controller.signal,
+      })
+      if (onStemResult) onStemResult(sepRes.data)
+      setSeparating(false)
+      setSeparationComplete(false)
+      setPendingSepResult(null)
+      if (onPanelModeChange) onPanelModeChange('file')
+    } catch (err) {
+      if (!axios.isCancel(err) && err.name !== 'CanceledError') {
+        setError(err.response?.data?.detail || 'Separation failed.')
+        if (onPanelModeChange) onPanelModeChange('file')
+      }
+      setSeparating(false)
+    }
+  }
+
   // Called by SeparationLoader onFinish after the separation animation completes
   const handleSeparationFinished = async () => {
     const sepData = pendingSepResult
@@ -161,7 +230,18 @@ export default function BackingGenerator({
 
     const fd = new FormData()
     fd.append('job_id', sepData.job_id)
-    fd.append('backing_type', backingType)
+    if (mode === 'manual') {
+      fd.append('backing_type', 'manual')
+      const effectiveVolumes = {}
+      const hasAnySolo = Object.values(soloedStems || {}).some(v => Boolean(v))
+      Object.keys(stemVolumes || {}).forEach(name => {
+        const isMuted = mutedStems[name] || (hasAnySolo && !soloedStems[name])
+        effectiveVolumes[name] = isMuted ? 0 : stemVolumes[name]
+      })
+      fd.append('volumes', JSON.stringify(effectiveVolumes))
+    } else {
+      fd.append('backing_type', backingType)
+    }
 
     try {
       const response = await axios.post(`${BASE_URL}/generate-backing-from-stems`, fd, {
@@ -219,7 +299,7 @@ export default function BackingGenerator({
             <div>
               <div className="workspace-title">Backing Track Ready</div>
               <div className="workspace-sub">
-                Preset: <strong style={{ color: 'var(--accent)', textTransform: 'capitalize' }}>{result.backing_type}</strong>
+                Preset: <strong style={{ color: 'var(--accent)', textTransform: 'capitalize' }}>{result.backing_type === 'manual' ? 'Custom Mix' : result.backing_type}</strong>
               </div>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={handleReset}>
@@ -231,7 +311,7 @@ export default function BackingGenerator({
 
         <div className="workspace-content">
           <div className="backing-result">
-            <BackingPlayer src={`${BASE_URL}${result.mp3_url}`} />
+            <BackingPlayer src={`${BASE_URL}${result.wav_url}`} />
 
             <div className="backing-download-row">
               {/* Dropdown Container */}
@@ -304,11 +384,30 @@ export default function BackingGenerator({
       transition={{ duration: 0.2 }}
     >
       <div className="workspace-header">
-        <div className="workspace-title">Backing Maker</div>
-        <div className="workspace-sub">
-          {stemsExist
-            ? 'Stems are ready. Select a preset and generate your backing track.'
-            : 'Select a preset. Stems will be separated automatically before generating.'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div className="workspace-title">Backing Maker</div>
+            <div className="workspace-sub">
+              {stemsExist
+                ? (mode === 'auto' ? 'Stems are ready. Select a preset and generate your backing track.' : 'Stems are ready. Adjust the mix manually to create your custom backing track.')
+                : (mode === 'auto' ? 'Select a preset. Stems will be separated automatically before generating.' : 'Stems will be separated first so you can manually adjust the mix.')}
+            </div>
+          </div>
+          
+          <div className="mode-toggle" style={{ display: 'flex', background: 'var(--surface)', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
+            <button
+              onClick={() => setMode('auto')}
+              style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 4, border: 'none', background: mode === 'auto' ? 'var(--accent)' : 'transparent', color: mode === 'auto' ? '#fff' : 'var(--text-2)', cursor: 'pointer', transition: 'all 0.2s' }}
+            >
+              Auto
+            </button>
+            <button
+              onClick={() => setMode('manual')}
+              style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 4, border: 'none', background: mode === 'manual' ? 'var(--accent)' : 'transparent', color: mode === 'manual' ? '#fff' : 'var(--text-2)', cursor: 'pointer', transition: 'all 0.2s' }}
+            >
+              Manual
+            </button>
+          </div>
         </div>
       </div>
 
@@ -328,48 +427,79 @@ export default function BackingGenerator({
           </div>
         )}
 
-        {/* Preset Cards */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Backing Preset
+        {/* Auto / Manual Mode Content */}
+        {mode === 'auto' ? (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>
+              Backing Preset
+            </div>
+            <div className="preset-grid">
+              {PRESETS.map((preset) => {
+                const Icon = preset.icon
+                return (
+                  <motion.button
+                    key={preset.id}
+                    className={`preset-card ${backingType === preset.id ? 'selected' : ''}`}
+                    onClick={() => setBackingType(preset.id)}
+                    whileTap={{ scale: 0.97 }}
+                    whileHover={{ y: -2 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                    style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center', width: '100%' }}
+                  >
+                    <div className="preset-icon">
+                      <Icon size={18} />
+                    </div>
+                    <span className="preset-name">{preset.name}</span>
+                    <span className="preset-desc">{preset.desc}</span>
+                  </motion.button>
+                )
+              })}
+            </div>
           </div>
-          <div className="preset-grid">
-            {PRESETS.map((preset) => {
-              const Icon = preset.icon
-              return (
-                <motion.button
-                  key={preset.id}
-                  className={`preset-card ${backingType === preset.id ? 'selected' : ''}`}
-                  onClick={() => setBackingType(preset.id)}
-                  whileTap={{ scale: 0.97 }}
-                  whileHover={{ y: -2 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                  style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center', width: '100%' }}
-                >
-                  <div className="preset-icon">
-                    <Icon size={18} />
-                  </div>
-                  <span className="preset-name">{preset.name}</span>
-                  <span className="preset-desc">{preset.desc}</span>
-                </motion.button>
-              )
-            })}
+        ) : (
+          <div>
+            {stemsExist ? (
+              <StemsPanel
+                stemResult={stemResult}
+                mutedStems={mutedStems}
+                soloedStems={soloedStems}
+                stemVolumes={stemVolumes}
+                onMuteToggle={onMuteToggle}
+                onSoloToggle={onSoloToggle}
+                onVolumeChange={onVolumeChange}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--surface-hover)', borderRadius: 'var(--r-lg)', border: '1px dashed var(--border)' }}>
+                <Waves size={32} style={{ color: 'var(--text-3)', margin: '0 auto 16px auto' }} />
+                <h3 style={{ margin: 0, fontSize: 16, color: 'var(--text)' }}>Stems Required</h3>
+                <p style={{ margin: '8px 0 20px 0', fontSize: 14, color: 'var(--text-2)' }}>
+                  Manual mixing requires the stems to be separated first. 
+                </p>
+                <button className="btn btn-outline" onClick={handlePrepareManual}>
+                  <Scissors size={14} />
+                  Separate Stems Now
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {error && (
-          <div className="error-bar">{error}</div>
+          <div className="error-bar" style={{ marginTop: 16 }}>{error}</div>
         )}
 
         {/* Generate Button */}
-        <button
-          className="btn btn-primary btn-lg btn-full"
-          onClick={handleGenerate}
-          disabled={!file}
-        >
-          <Music2 size={15} />
-          Generate Backing Track
-        </button>
+        {mode === 'auto' || (mode === 'manual' && stemsExist) ? (
+          <button
+            className="btn btn-primary btn-lg btn-full"
+            onClick={handleGenerate}
+            disabled={!file}
+            style={{ marginTop: 16 }}
+          >
+            <Music2 size={15} />
+            {mode === 'manual' ? 'Create Custom Backing Track' : 'Generate Backing Track'}
+          </button>
+        ) : null}
       </div>
     </motion.div>
   )

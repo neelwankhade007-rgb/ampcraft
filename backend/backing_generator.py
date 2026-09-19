@@ -6,7 +6,7 @@ from pydub import AudioSegment
 
 BACKING_CONFIGS = {
     "guitar": {
-        "guitar": 0.20,
+        "guitar": 0.05,
         "bass": 1.0,
         "drums": 1.0,
         "piano": 1.0,
@@ -15,7 +15,7 @@ BACKING_CONFIGS = {
     },
     "bass": {
         "guitar": 1.0,
-        "bass": 0.20,
+        "bass": 0.05,
         "drums": 1.0,
         "piano": 1.0,
         "vocals": 1.0,
@@ -24,7 +24,7 @@ BACKING_CONFIGS = {
     "drums": {
         "guitar": 1.0,
         "bass": 1.0,
-        "drums": 0.20,
+        "drums": 0.05,
         "piano": 1.0,
         "vocals": 1.0,
         "other": 1.0
@@ -33,7 +33,7 @@ BACKING_CONFIGS = {
         "guitar": 1.0,
         "bass": 1.0,
         "drums": 1.0,
-        "piano": 0.20,
+        "piano": 0.05,
         "vocals": 1.0,
         "other": 1.0
     },
@@ -42,7 +42,7 @@ BACKING_CONFIGS = {
         "bass": 1.0,
         "drums": 1.0,
         "piano": 1.0,
-        "vocals": 0.0,
+        "vocals": 0.01,
         "other": 1.0
     }
 }
@@ -60,17 +60,19 @@ import shutil
 # Reusable mixing function — operates on a directory of WAV stems
 # ─────────────────────────────────────────────────────────────────────────────
 
-def mix_stems_to_backing(stems_dir: str, backing_type: str, backing_dir: str, base_name: str):
+def mix_stems_to_backing(stems_dir: str, backing_type: str, backing_dir: str, base_name: str, custom_volumes: dict = None):
     """
     Reads WAV stems from `stems_dir`, applies the volume config for
-    `backing_type`, mixes them, and writes WAV + MP3 into `backing_dir`.
+    `backing_type` (or `custom_volumes` if provided), mixes them, and writes WAV + MP3 into `backing_dir`.
 
     Returns dict with wav_path, mp3_path.
     """
-    if backing_type not in BACKING_CONFIGS:
-        raise ValueError(f"Unsupported backing type: {backing_type}")
-
-    config = BACKING_CONFIGS[backing_type]
+    if custom_volumes is not None:
+        config = custom_volumes
+    else:
+        if backing_type not in BACKING_CONFIGS:
+            raise ValueError(f"Unsupported backing type: {backing_type}")
+        config = BACKING_CONFIGS[backing_type]
 
     # Collect stems to mix
     active_stems = []
@@ -116,31 +118,22 @@ def mix_stems_to_backing(stems_dir: str, backing_type: str, backing_dir: str, ba
         else:
             mix += scaled_audio
 
-    # Normalize
-    peak = np.max(np.abs(mix))
-    if peak > 1.0:
-        mix = mix / peak
+    # Hard clip to [-1, 1] to prevent out-of-range samples without
+    # altering the intended volume ratios (no peak normalization).
+    mix = np.clip(mix, -1.0, 1.0)
 
-    # Output paths
+    # Output path
     wav_filename = f"{base_name}_{backing_type}_backing.wav"
-    mp3_filename = f"{base_name}_{backing_type}_backing.mp3" 
-    
     wav_path = os.path.join(backing_dir, wav_filename)
-    mp3_path = os.path.join(backing_dir, mp3_filename)
 
     # Save WAV
     sf.write(wav_path, mix, sample_rate)
 
-    # Save MP3
-    AudioSegment.from_wav(wav_path).export(mp3_path, format="mp3", bitrate="320k")
-
     print("\nGenerated:")
     print(wav_path)
-    print(mp3_path)
 
     return {
         "wav_path": wav_path,
-        "mp3_path": mp3_path,
     }
 
 
@@ -196,7 +189,8 @@ def generate_backing_from_existing_stems(
     stems_job_id: str,
     backing_type: str,
     backing_job_id: str,
-    base_name: str
+    base_name: str,
+    custom_volumes: dict = None
 ):
     """
     Generates a backing track by reusing already-separated stems in
@@ -209,7 +203,7 @@ def generate_backing_from_existing_stems(
     backing_dir = os.path.join(BACKINGS_DIR, backing_job_id)
     os.makedirs(backing_dir, exist_ok=True)
 
-    result = mix_stems_to_backing(stems_dir, backing_type, backing_dir, base_name)
+    result = mix_stems_to_backing(stems_dir, backing_type, backing_dir, base_name, custom_volumes=custom_volumes)
 
     return {
         "job_id": backing_job_id,

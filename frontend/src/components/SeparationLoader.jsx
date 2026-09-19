@@ -11,8 +11,12 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
   const overallProgressRef                       = useRef(0)
   overallProgressRef.current                     = overallProgress
 
+  const onFinishRef = useRef(onFinish)
+  onFinishRef.current = onFinish
+
+  const startTimeRef = useRef(Date.now())
+
   useEffect(() => {
-    let startTime       = Date.now()
     let completedTime   = null
     let completedStart  = 0
 
@@ -30,12 +34,12 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
         if (pct > 0.6) setCurrentStage(4)
         if (prog >= 100) {
           clearInterval(interval)
-          setTimeout(onFinish, 300)
+          setTimeout(() => onFinishRef.current?.(), 300)
         }
         return
       }
 
-      const elapsed = (Date.now() - startTime) / 1000
+      const elapsed = (Date.now() - startTimeRef.current) / 1000
       let stage = 0, prog = 0
 
       if      (elapsed < 3)  { stage = 0; prog = (elapsed / 3) * 15 }
@@ -52,7 +56,7 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
     }, 100)
 
     return () => clearInterval(interval)
-  }, [isComplete, onFinish])
+  }, [isComplete])
 
   const STAGES = isBacking ? [
     { title: 'Loading Audio',           sub: 'Reading audio data…' },

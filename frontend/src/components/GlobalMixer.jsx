@@ -1,6 +1,7 @@
 import React from 'react'
 import { Download } from 'lucide-react'
 import { formatTime } from '../utils/formatTime'
+import { API_BASE_URL } from '../config/api'
 
 export default function GlobalMixer({
   globalDuration,
@@ -38,7 +39,7 @@ export default function GlobalMixer({
 
           {stemResult.job_id && (
             <a
-              href={`http://localhost:8000/download-stems/${stemResult.job_id}?format=${downloadFormat}`}
+              href={`${API_BASE_URL}/download-stems/${stemResult.job_id}?format=${downloadFormat}`}
               download={`${stemResult.original_filename?.split('.')[0]}_stems.zip`}
               className="btn btn-secondary btn-sm"
               style={{ textDecoration: 'none' }}

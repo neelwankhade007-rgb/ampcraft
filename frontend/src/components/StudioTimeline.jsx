@@ -3,6 +3,7 @@ import { Play, Pause, RotateCcw, SkipBack, Volume2, VolumeX, Download } from 'lu
 import { motion } from 'framer-motion'
 import { formatTime } from '../utils/formatTime'
 import DawWaveformCanvas from './DawWaveformCanvas'
+import { API_BASE_URL } from '../config/api'
 
 function StudioTimeline({
   fileName,
@@ -149,7 +150,7 @@ function StudioTimeline({
               ))}
             </div>
             <a
-              href={`http://localhost:8000/download-stems/${stemResult.job_id}?format=${downloadFormat}`}
+              href={`${API_BASE_URL}/download-stems/${stemResult.job_id}?format=${downloadFormat}`}
               download={`${fileName?.split('.')[0] || 'master'}_stems.zip`}
               className="btn-all-stems-zip"
               style={{ textDecoration: 'none' }}

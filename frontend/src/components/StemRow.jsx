@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Download, Mic2, Guitar, Drum, Music2, Piano, Waves, ChevronDown } from 'lucide-react'
+import { API_BASE_URL } from '../config/api'
 
-const BASE = 'http://localhost:8000'
+const BASE = API_BASE_URL
 
 const STEM_META = {
   vocals: { label: 'Vocals', color: '#a855f7', icon: Mic2 },

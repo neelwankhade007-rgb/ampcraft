@@ -15,7 +15,7 @@ import HistoryDrawer    from './components/HistoryDrawer'
 
 import useProject      from './hooks/useProject'
 import useStemMixer    from './hooks/useStemMixer'
-import { useHistory }  from './context/HistoryContext'
+import { API_BASE_URL } from './config/api'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App — coordinates active modules, shared timeline, and project playback state
@@ -138,7 +138,7 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
     fd.append('end_sec', String(endSec))
 
     try {
-      const res = await axios.post('http://localhost:8000/separate', fd, {
+      const res = await axios.post(`${API_BASE_URL}/separate`, fd, {
         timeout: 300000,
         signal: controller.signal,
       })

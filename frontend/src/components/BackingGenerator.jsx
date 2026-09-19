@@ -5,8 +5,9 @@ import { Guitar, Music2, Drum, Piano, Mic2, Download, RotateCcw, Waves, CheckCir
 import SeparationLoader from './SeparationLoader'
 import BackingPlayer from './BackingPlayer'
 import StemsPanel from './StemsPanel'
+import { API_BASE_URL } from '../config/api'
 
-const BASE_URL = 'http://localhost:8000'
+const BASE_URL = API_BASE_URL
 
 const PRESETS = [
   { id: 'guitar', name: 'Guitar',  desc: 'Mute guitar, keep everything else', icon: Guitar },

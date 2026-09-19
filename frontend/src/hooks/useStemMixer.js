@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import axios from 'axios'
+import { API_BASE_URL } from '../config/api'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useStemMixer — DAW-style unified transport for stem playback.
@@ -93,7 +94,7 @@ export default function useStemMixer(
 
     try {
       await Promise.all(names.map(async (name) => {
-        const url = `http://localhost:8000${stems[name]}`
+        const url = `${API_BASE_URL}${stems[name]}`
         const response = await axios.get(url, { responseType: 'arraybuffer' })
         const buffer = await ctx.decodeAudioData(response.data)
         stemBuffersRef.current[name] = buffer

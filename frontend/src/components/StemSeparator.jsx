@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import axios from 'axios'
 import '../index.css'
+import { API_BASE_URL } from '../config/api'
 
 import UploadSidebar from './UploadSidebar'
 import RegionSelector from './RegionSelector'
@@ -103,7 +104,7 @@ export default function StemSeparator({ onJobIdChange }) {
     
     try {
       await Promise.all(names.map(async (name) => {
-        const url = `http://localhost:8000${stems[name]}`
+        const url = `${API_BASE_URL}${stems[name]}`
         const response = await axios.get(url, { responseType: 'arraybuffer' })
         const buffer = await ctx.decodeAudioData(response.data)
         stemBuffersRef.current[name] = buffer
@@ -327,7 +328,7 @@ export default function StemSeparator({ onJobIdChange }) {
     fd.append('end_sec', String(endSec))
 
     try {
-      const res = await axios.post('http://localhost:8000/separate', fd, { 
+      const res = await axios.post(`${API_BASE_URL}/separate`, fd, { 
         timeout: 300000,
         signal: controller.signal
       })

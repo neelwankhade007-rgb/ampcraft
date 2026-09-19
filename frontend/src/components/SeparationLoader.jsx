@@ -5,11 +5,28 @@ import { CheckCircle2 } from 'lucide-react'
 const RADIUS = 52
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
-export default function SeparationLoader({ isComplete, onFinish, isBacking = false }) {
+// ── Configurable Duration-Aware Progress Estimation Constants ───────────────
+// Note: This is an estimated progress heuristic based on input duration.
+// It is NOT a real-time progress stream from the backend/Demucs.
+const DEFAULT_ESTIMATED_DURATION_SEC = 48    // Fallback if audio duration is missing/invalid
+const ESTIMATE_FACTOR_PER_AUDIO_SEC  = 1.0   // Estimated processing seconds per second of audio
+const MIN_ESTIMATED_PROCESSING_SEC   = 15    // Minimum processing estimate floor for short snippets
+const PROGRESS_CEILING               = 96    // Safety ceiling (%) while awaiting backend response
+const ASYMPTOTIC_RATE_SEC            = 25    // Smoothing factor for asymptotic approach past expected time
+
+// Proportional stage milestone ratios matching the original baseline (3s, 8s, 38s, 48s out of 48s)
+const STAGE_RATIO_1 = 3 / 48   // ~0.0625 (Stage 0 -> Stage 1 at 15% progress)
+const STAGE_RATIO_2 = 8 / 48   // ~0.1667 (Stage 1 -> Stage 2 at 30% progress)
+const STAGE_RATIO_3 = 38 / 48  // ~0.7917 (Stage 2 -> Stage 3 at 75% progress)
+
+export default function SeparationLoader({ isComplete, onFinish, isBacking = false, duration }) {
   const [currentStage, setCurrentStage]         = useState(0)
   const [overallProgress, setOverallProgress]   = useState(0)
   const overallProgressRef                       = useRef(0)
   overallProgressRef.current                     = overallProgress
+
+  const maxProgressRef = useRef(0)
+  const initialDurationRef = useRef(duration)
 
   const onFinishRef = useRef(onFinish)
   onFinishRef.current = onFinish
@@ -20,6 +37,18 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
     let completedTime   = null
     let completedStart  = 0
 
+    // Compute expected duration once per separation task
+    const rawDuration = initialDurationRef.current
+    const isValidDuration = typeof rawDuration === 'number' && !isNaN(rawDuration) && rawDuration > 0
+    const expectedTotalSec = isValidDuration
+      ? Math.max(MIN_ESTIMATED_PROCESSING_SEC, rawDuration * ESTIMATE_FACTOR_PER_AUDIO_SEC)
+      : DEFAULT_ESTIMATED_DURATION_SEC
+
+    const t1 = expectedTotalSec * STAGE_RATIO_1
+    const t2 = expectedTotalSec * STAGE_RATIO_2
+    const t3 = expectedTotalSec * STAGE_RATIO_3
+    const t4 = expectedTotalSec
+
     const interval = setInterval(() => {
       if (isComplete) {
         if (completedTime === null) {
@@ -29,10 +58,12 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
         const elapsed = (Date.now() - completedTime) / 1000
         const pct     = Math.min(1, elapsed / 0.6)
         const prog    = Math.round(completedStart + (100 - completedStart) * pct)
-        setOverallProgress(prog)
+        const safeProg = Math.max(maxProgressRef.current, Math.min(100, prog))
+        maxProgressRef.current = safeProg
+        setOverallProgress(safeProg)
         if (pct > 0.2) setCurrentStage(3)
         if (pct > 0.6) setCurrentStage(4)
-        if (prog >= 100) {
+        if (safeProg >= 100) {
           clearInterval(interval)
           setTimeout(() => onFinishRef.current?.(), 300)
         }
@@ -42,17 +73,30 @@ export default function SeparationLoader({ isComplete, onFinish, isBacking = fal
       const elapsed = (Date.now() - startTimeRef.current) / 1000
       let stage = 0, prog = 0
 
-      if      (elapsed < 3)  { stage = 0; prog = (elapsed / 3) * 15 }
-      else if (elapsed < 8)  { stage = 1; prog = 15 + ((elapsed - 3)  / 5)  * 15 }
-      else if (elapsed < 38) { stage = 2; prog = 30 + ((elapsed - 8)  / 30) * 45 }
-      else if (elapsed < 48) { stage = 3; prog = 75 + ((elapsed - 38) / 10) * 15 }
-      else {
+      if (elapsed < t1) {
+        stage = 0
+        prog = (elapsed / t1) * 15
+      } else if (elapsed < t2) {
+        stage = 1
+        prog = 15 + ((elapsed - t1) / (t2 - t1)) * 15
+      } else if (elapsed < t3) {
+        stage = 2
+        prog = 30 + ((elapsed - t2) / (t3 - t2)) * 45
+      } else if (elapsed < t4) {
+        stage = 3
+        prog = 75 + ((elapsed - t3) / (t4 - t3)) * 15
+      } else {
         stage = 4
-        prog  = 90 + (1 - Math.exp(-(elapsed - 48) / 20)) * 8
+        const maxDelta = PROGRESS_CEILING - 90
+        prog = 90 + (1 - Math.exp(-(elapsed - t4) / ASYMPTOTIC_RATE_SEC)) * maxDelta
       }
 
+      const clampedProg = Math.min(PROGRESS_CEILING, Math.round(prog))
+      const safeProg = Math.max(maxProgressRef.current, clampedProg)
+      maxProgressRef.current = safeProg
+
       setCurrentStage(stage)
-      setOverallProgress(Math.min(99, Math.round(prog)))
+      setOverallProgress(safeProg)
     }, 100)
 
     return () => clearInterval(interval)

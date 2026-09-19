@@ -407,6 +407,7 @@ export default function StemSeparator({ onJobIdChange }) {
           <div className="loading-overlay" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <SeparationLoader
               isComplete={separationComplete}
+              duration={endSec > startSec ? (endSec - startSec) : audioDuration}
               onFinish={() => {
                 setStemResult(pendingResult)
                 setSeparating(false)

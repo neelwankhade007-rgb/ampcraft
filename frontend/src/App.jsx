@@ -265,6 +265,7 @@ export default function App({ initialModule = 'separator', onNavigateHome }) {
                 {separating && (
                   <SeparationLoader
                     isComplete={separationComplete}
+                    duration={hasSelection && (endSec > startSec) ? (endSec - startSec) : (audioDuration || (endSec > startSec ? endSec - startSec : 0))}
                     onFinish={() => {
                       setStemResult(pendingResult)
                       setSeparating(false)

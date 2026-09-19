@@ -270,6 +270,7 @@ export default function BackingGenerator({
       <SeparationLoader
         isBacking
         isComplete={separationComplete}
+        duration={hasSelection && (endSec > startSec) ? (endSec - startSec) : (audioDuration || (endSec > startSec ? endSec - startSec : 0))}
         onFinish={handleSeparationFinished}
       />
     )
